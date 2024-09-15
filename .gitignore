@@ -1,0 +1,5 @@
+# Rust output
+/target/
+
+# Sphinx output
+/doc/_build/
