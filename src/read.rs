@@ -1,3 +1,4 @@
+//! WARC file reading
 use std::io::{BufRead, Read};
 
 use crate::{
@@ -10,8 +11,10 @@ use crate::{
 const BUFFER_LENGTH: usize = 4096;
 const MAX_HEADER_LENGTH: usize = 32768;
 
+/// Configuration for a [`Reader`]
 #[derive(Debug, Clone, Default)]
 pub struct ReaderConfig {
+    /// Compression format of the file to be read
     pub compression_format: Format,
 }
 
@@ -21,6 +24,7 @@ pub struct StateBlock {
     read: u64,
 }
 
+/// WARC format reader
 pub struct Reader<S, R: Read> {
     state: S,
     input: BufferReader<Decompressor<BufferReader<R>>>,
@@ -29,12 +33,16 @@ pub struct Reader<S, R: Read> {
 }
 
 impl<S, R: Read> Reader<S, R> {
+    /// Returns the position of the beginning of a WARC record.
+    ///
+    /// This function is intended for indexing a WARC file.
     pub fn record_boundary_position(&self) -> u64 {
         self.record_boundary_position
     }
 }
 
 impl<R: Read> Reader<StateHeader, R> {
+    /// Creates a new reader.
     pub fn new(input: R, config: ReaderConfig) -> std::io::Result<Self> {
         let input = BufferReader::new(Decompressor::new(
             BufferReader::new(input),
@@ -49,16 +57,22 @@ impl<R: Read> Reader<StateHeader, R> {
         })
     }
 
+    /// Returns the underlying reader.
     pub fn into_inner(self) -> R {
         self.input.into_inner().into_inner().into_inner()
     }
 
+    /// Returns whether there is another WARC record to be read.
     pub fn has_next_record(&mut self) -> std::io::Result<bool> {
         self.input.fill_buffer_if_empty()?;
 
         Ok(!self.input.buffer().is_empty() || self.input.get_mut().has_data_left()?)
     }
 
+    /// Reads the header portion of a WARC record.
+    ///
+    /// This function consumes the reader and returns a typestate transitioned
+    /// reader for reading the block portion of a WARC record.
     pub fn read_header(mut self) -> Result<(WarcHeader, Reader<StateBlock, R>), ParseIoError> {
         loop {
             if let Some(index) = crate::parse::scan_header_deliminator(self.input.buffer()) {
@@ -129,6 +143,13 @@ impl<R: Read> Reader<StateBlock, R> {
         Ok(read_length)
     }
 
+    /// Indicate that reading the block portion of WARC record has completed.
+    ///
+    /// It's not necessary for the user to read the entire block or at all;
+    /// this function will continue to the end of the record automatically.
+    ///
+    /// Consumes the writer and returns a typestate transitioned writer that
+    /// can read the next WARC record.
     pub fn finish_block(mut self) -> Result<Reader<StateHeader, R>, ParseIoError> {
         tracing::trace!("finish block");
         self.read_remaining_block()?;

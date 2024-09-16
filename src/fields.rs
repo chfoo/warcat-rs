@@ -1,6 +1,9 @@
+//! HTTP-style name-value fields
 use std::{borrow::Borrow, fmt::Display};
 
+/// Trait for names.
 pub trait EqIcase<Rhs: ?Sized = Self> {
+    /// Returns whether the values are equal without ASCII case-sensitivity.
     fn eq_ignore_ascii_case(&self, other: &Rhs) -> bool;
 }
 
@@ -40,6 +43,12 @@ impl EqIcase for &[u8] {
     }
 }
 
+/// Data structure for HTTP-style name-value fields.
+///
+/// This is a multimap where keys are case-insensitive.
+///
+/// No validation is performed on whether the names or values are valid HTTP
+/// values.
 #[derive(Debug, Clone)]
 pub struct FieldMap<N, V> {
     fields: Vec<(N, V)>,

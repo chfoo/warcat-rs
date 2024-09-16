@@ -1,3 +1,4 @@
+//! WARC headers
 use std::io::Write;
 
 use chrono::Utc;
@@ -7,13 +8,19 @@ use crate::{
     fields::FieldMap,
 };
 
+/// Data structure for representing a WARC header.
 #[derive(Debug, Clone)]
 pub struct WarcHeader {
+    /// The version string such as "WARC/1.1".
     pub version: String,
+    /// The name-value fields of the header.
     pub fields: FieldMap<String, String>,
 }
 
 impl WarcHeader {
+    /// Create a new empty header.
+    ///
+    /// The version and fields will be empty.
     pub fn empty() -> Self {
         Self {
             version: String::new(),
@@ -21,6 +28,10 @@ impl WarcHeader {
         }
     }
 
+    /// Create a new header with the bare minimum values.
+    ///
+    /// The user supplies the `Content-Length` and `WARC-Type`.
+    /// `WARC-Record-ID` and `WARC-Date` is automatically generated.
     pub fn new<WT>(content_length: u64, warc_type: WT) -> Self
     where
         WT: Into<String>,
@@ -44,6 +55,7 @@ impl WarcHeader {
         header
     }
 
+    /// Parses a WARC header from the given bytes.
     pub fn parse(input: &[u8]) -> Result<Self, ParseError> {
         let (remain, version) = crate::parse::warc::version_line(input)?;
 
@@ -56,12 +68,14 @@ impl WarcHeader {
             let name = String::from_utf8(pair.name.to_vec())?;
             let value = String::from_utf8(pair.value.to_vec())?;
 
+            // FIXME: collapse obsolete folding in values
             header.fields.insert(name, value);
         }
 
         Ok(header)
     }
 
+    /// Returns the value of `Content-Length` as an integer.
     pub fn content_length(&self) -> Result<u64, ParseError> {
         if let Some(value) = self.fields.get_u64_strict("Content-Length") {
             Ok(value.map_err(|e| {
@@ -72,11 +86,16 @@ impl WarcHeader {
         }
     }
 
+    /// Sets the value of `Content-Length` as an integer.
     pub fn set_content_length(&mut self, value: u64) {
         self.fields
             .insert("Content-Length".to_string(), value.to_string());
     }
 
+    /// Returns whether the header is a valid WARC formatted header.
+    ///
+    /// **Important:** This function does not validate whether the *contents* of
+    /// the header conforms to the WARC specification!
     pub fn validate(&self) -> Result<(), ParseError> {
         crate::parse::warc::version(self.version.as_bytes())?;
 
@@ -88,6 +107,7 @@ impl WarcHeader {
         Ok(())
     }
 
+    /// Write the WARC header as serialized bytes.
     pub fn serialize<W: Write>(&self, mut buf: W) -> std::io::Result<()> {
         buf.write_all(self.version.as_bytes())?;
         buf.write_all(b"\r\n")?;

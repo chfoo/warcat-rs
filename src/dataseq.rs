@@ -1,3 +1,4 @@
+//! Streams of serialized values.
 use std::io::{BufRead, Write};
 
 use serde::{de::DeserializeOwned, Serialize};
@@ -7,8 +8,10 @@ const RS_SEQ: &[u8] = b"\x1e";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SeqFormat {
-    JsonSeq, // RFC 7464
-    CborSeq, // RFC 8742
+    /// JSON sequences (RFC 7464)
+    JsonSeq,
+    /// CBOR sequences (RFC 8742)
+    CborSeq,
 }
 
 pub struct SeqReader<R: BufRead> {
@@ -38,7 +41,8 @@ impl<R: BufRead> SeqReader<R> {
         self.input
     }
 
-    pub fn next<T: DeserializeOwned>(&mut self) -> anyhow::Result<Option<T>> {
+    pub fn get<T: DeserializeOwned>(&mut self) -> anyhow::Result<Option<T>> {
+        // TODO: remove anyhow from public API
         match self.format {
             SeqFormat::JsonSeq => self.read_json(),
             SeqFormat::CborSeq => self.read_cbor(),
@@ -150,13 +154,13 @@ mod tests {
         let input = BufReader::new(Cursor::new(b"\x1e123\n\x1e456\n"));
         let mut reader = SeqReader::new(input, SeqFormat::JsonSeq);
 
-        let item = reader.next::<i32>().unwrap();
+        let item = reader.get::<i32>().unwrap();
         assert_eq!(item, Some(123));
 
-        let item = reader.next::<i32>().unwrap();
+        let item = reader.get::<i32>().unwrap();
         assert_eq!(item, Some(456));
 
-        let item = reader.next::<i32>().unwrap();
+        let item = reader.get::<i32>().unwrap();
         assert_eq!(item, None);
     }
 
@@ -165,13 +169,13 @@ mod tests {
         let input = BufReader::new(Cursor::new(b"\x18\x7b\x19\x01\xC8"));
         let mut reader = SeqReader::new(input, SeqFormat::CborSeq);
 
-        let item = reader.next::<i32>().unwrap();
+        let item = reader.get::<i32>().unwrap();
         assert_eq!(item, Some(123));
 
-        let item = reader.next::<i32>().unwrap();
+        let item = reader.get::<i32>().unwrap();
         assert_eq!(item, Some(456));
 
-        let item = reader.next::<i32>().unwrap();
+        let item = reader.get::<i32>().unwrap();
         assert_eq!(item, None);
     }
 }

@@ -1,8 +1,8 @@
-/// Reader and writer abstractions for compressed streams.
-///
-/// Some codecs support multistreams which are compressed files concatenated
-/// together. The purpose is to allow fast seeking within a file to a desired
-/// stream.
+//! Reader and writer abstractions for compressed streams.
+//!
+//! Some codecs support multistreams which are compressed files concatenated
+//! together. The purpose is to allow fast seeking within a file to a desired
+//! record.
 use std::{
     fmt::Display,
     io::{BufRead, Read, Write},

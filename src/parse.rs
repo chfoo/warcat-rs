@@ -1,3 +1,4 @@
+//! Parsing utilities.
 use crate::error::ParseError;
 
 pub(crate) mod fields;
@@ -12,6 +13,7 @@ pub fn scan_header_deliminator(data: &[u8]) -> Option<usize> {
     }
 }
 
+/// Parse a HTTP-like fields of name-value pairs.
 pub fn parse_name_value_fields(value: &[u8]) -> Result<Vec<fields::FieldPairRef>, ParseError> {
     match fields::field_pairs(value) {
         Ok((_input, output)) => Ok(output),
@@ -19,6 +21,7 @@ pub fn parse_name_value_fields(value: &[u8]) -> Result<Vec<fields::FieldPairRef>
     }
 }
 
+/// Returns whether the value is a valid name in a HTTP-like field.
 pub fn validate_field_name(value: &[u8]) -> Result<(), ParseError> {
     match nom::combinator::all_consuming(fields::field_name)(value) {
         Ok((_input, _output)) => Ok(()),
@@ -26,6 +29,9 @@ pub fn validate_field_name(value: &[u8]) -> Result<(), ParseError> {
     }
 }
 
+/// Returns whether the value is a valid value in a HTTP-like field.
+///
+/// When `multiline` is `true`, obsolete line folding is permitted.
 pub fn validate_field_value(value: &[u8], multiline: bool) -> Result<(), ParseError> {
     let f = if multiline {
         fields::field_value
@@ -38,6 +44,10 @@ pub fn validate_field_value(value: &[u8], multiline: bool) -> Result<(), ParseEr
     }
 }
 
+/// Parse a value into a `u64`.
+///
+/// Unlike [`u64::try_from()`], only ASCII digits are permitted. Use of std
+/// library parsing functions may lead to security issues.
 pub fn parse_u64_strict(value: &str) -> Result<u64, std::num::ParseIntError> {
     if !value.chars().all(|c| c.is_ascii_digit()) {
         return "?".parse();

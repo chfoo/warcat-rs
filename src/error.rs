@@ -1,3 +1,4 @@
+//! Error representations
 use std::{
     backtrace::Backtrace,
     fmt::Display,
@@ -6,6 +7,7 @@ use std::{
     string::FromUtf8Error,
 };
 
+/// Error for during parsing from a IO stream.
 #[derive(Debug, thiserror::Error)]
 pub enum ParseIoError {
     #[error(transparent)]
@@ -57,6 +59,7 @@ impl ParseIoError {
     }
 }
 
+/// Error for parsing.
 #[derive(Debug, thiserror::Error)]
 pub struct ParseError {
     kind: ParseErrorKind,

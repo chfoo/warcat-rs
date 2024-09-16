@@ -80,7 +80,7 @@ impl Importer {
         super::progress::global_progress_bar().add(self.progress_bar.clone());
 
         loop {
-            let message = self.input.next()?;
+            let message = self.input.get()?;
 
             if let Some(message) = message {
                 self.process_message(message)?;

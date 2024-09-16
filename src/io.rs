@@ -1,11 +1,21 @@
+//! IO utilities
 use std::io::{BufRead, Read, Write};
 
 const IO_BUFFER_LENGTH: usize = 4096;
 
+/// Indicate position in the stream
 pub trait LogicalPosition {
+    /// Returns the position in the stream without accounting for seeks.
+    ///
+    /// This value should be the same as the number of bytes read from
+    /// the stream.
     fn logical_position(&self) -> u64;
 }
 
+/// A [`BufRead`] implementation
+///
+/// This is an alternative to [`std::io::BufReader`] but implements [`LogicalPosition`]
+/// and allows getting a stream position without seekable streams.
 pub struct BufferReader<R: Read> {
     reader: R,
     buffer: Vec<u8>,
@@ -14,6 +24,7 @@ pub struct BufferReader<R: Read> {
 }
 
 impl<R: Read> BufferReader<R> {
+    /// Create a new buffered reader.
     pub fn new(reader: R) -> Self {
         Self {
             reader,
@@ -23,22 +34,31 @@ impl<R: Read> BufferReader<R> {
         }
     }
 
+    /// Returns a reference to the underlying reader.
     pub fn get_ref(&self) -> &R {
         &self.reader
     }
 
+    /// Returns a mutable reference to the underlying reader.
+    ///
+    /// Modifying the underlying reader may cause unexpected behavior.
     pub fn get_mut(&mut self) -> &mut R {
         &mut self.reader
     }
 
+    /// Returns the underlying reader.
     pub fn into_inner(self) -> R {
         self.reader
     }
 
+    /// Returns a slice of the internal buffer.
     pub fn buffer(&self) -> &[u8] {
         &self.buffer[self.buffer_position..]
     }
 
+    /// Fills the internal buffer with more data from the underlying reader.
+    ///
+    /// Returns the number of bytes read.
     pub fn fill_buffer(&mut self) -> std::io::Result<usize> {
         let original_len = self.buffer.len();
         self.buffer.resize(original_len + IO_BUFFER_LENGTH, 0);
@@ -57,6 +77,7 @@ impl<R: Read> BufferReader<R> {
         }
     }
 
+    /// Fills the internal buffer only if it is empty.
     pub fn fill_buffer_if_empty(&mut self) -> std::io::Result<usize> {
         if self.buffer.is_empty() {
             self.fill_buffer()
