@@ -15,7 +15,6 @@ edition = "2021"
 anyhow = { version = "1.0.86", optional = true }
 clap = { version = "4.5.16", features = ["derive"], optional = true }
 indicatif = { version = "0.17.8", optional = true }
-serde = { version = "1.0.209", features = ["derive"], optional = true }
 tracing-subscriber = { version = "0.3.18", features = [
     "json",
 ], optional = true }
@@ -31,6 +30,7 @@ regex = { version = "1.10.6", default-features = false, features = [
     "std",
     "perf",
 ] }
+serde = "1.0.209"
 serde_json = "1.0.127"
 thiserror = "1.0.63"
 tracing = "0.1.40"
@@ -44,7 +44,7 @@ app = [
     "dep:anyhow",
     "dep:clap",
     "dep:indicatif",
-    "dep:serde",
+    "serde/derive",
     "dep:tracing-subscriber",
 ]
 zstd = ["dep:zstd"]

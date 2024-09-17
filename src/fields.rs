@@ -1,6 +1,9 @@
 //! HTTP-style name-value fields
 use std::{borrow::Borrow, fmt::Display};
 
+mod de;
+mod ser;
+
 /// Trait for names.
 pub trait EqIcase<Rhs: ?Sized = Self> {
     /// Returns whether the values are equal without ASCII case-sensitivity.
