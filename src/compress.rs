@@ -4,7 +4,7 @@
 //! together. The purpose is to allow fast seeking within a file to a desired
 //! record.
 use std::{
-    fmt::Display,
+    fmt::{Debug, Display},
     io::{BufRead, Read, Write},
     str::FromStr,
 };
@@ -205,10 +205,7 @@ impl<W: Write> Compressor<W> {
     ///
     /// This function has effect for only multistream codecs.
     pub fn restart_stream(&mut self) -> std::io::Result<()> {
-        if matches!(
-            self.config.format,
-            Format::Gzip | Format::Zstandard
-        ) {
+        if matches!(self.config.format, Format::Gzip | Format::Zstandard) {
             let encoder = std::mem::replace(&mut self.encoder, Encoder::None);
             let dest = encoder.finish()?;
             self.encoder = create_encoder(dest, self.config.format, self.config.level);
@@ -235,6 +232,19 @@ enum Decoder<R: BufRead> {
     Brotli(Box<BrDecoder<R>>),
     Zstandard(ZstdDecoder<'static, R>),
     None,
+}
+
+impl<R: BufRead> Debug for Decoder<R> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Identity(_arg0) => f.debug_tuple("Identity").finish(),
+            Self::Deflate(_arg0) => f.debug_tuple("Deflate").finish(),
+            Self::Gzip(_arg0) => f.debug_tuple("Gzip").finish(),
+            Self::Brotli(_arg0) => f.debug_tuple("Brotli").finish(),
+            Self::Zstandard(_arg0) => f.debug_tuple("Zstandard").finish(),
+            Self::None => write!(f, "None"),
+        }
+    }
 }
 
 impl<R: BufRead> Decoder<R> {
@@ -286,6 +296,7 @@ impl<R: BufRead> Read for Decoder<R> {
 }
 
 /// Compression decoder for decompressing streams.
+#[derive(Debug)]
 pub struct Decompressor<R: BufRead> {
     decoder: Decoder<R>,
     format: Format,
@@ -376,12 +387,8 @@ fn create_encoder<W: Write>(dest: W, format: Format, level: Level) -> Encoder<W>
             dest,
             flate2::Compression::new(level as u32),
         )),
-        Format::Gzip => {
-            Encoder::Gzip(GzEncoder::new(dest, flate2::Compression::new(level as u32)))
-        }
-        Format::Brotli => {
-            Encoder::Brotli(Box::new(BrEncoder::new(dest, 4096, level as u32, 22)))
-        }
+        Format::Gzip => Encoder::Gzip(GzEncoder::new(dest, flate2::Compression::new(level as u32))),
+        Format::Brotli => Encoder::Brotli(Box::new(BrEncoder::new(dest, 4096, level as u32, 22))),
         Format::Zstandard => Encoder::Zstandard(ZstdEncoder::new(dest, level).unwrap()),
     }
 }
@@ -418,8 +425,7 @@ mod tests {
         let buf = c.finish().unwrap();
         assert!(!buf.is_empty());
 
-        let mut d =
-            Decompressor::new(BufReader::new(Cursor::new(buf)), Format::Brotli).unwrap();
+        let mut d = Decompressor::new(BufReader::new(Cursor::new(buf)), Format::Brotli).unwrap();
 
         let mut buf = Vec::new();
         d.read_to_end(&mut buf).unwrap();
@@ -443,8 +449,7 @@ mod tests {
 
         let buf = c.finish().unwrap();
 
-        let mut d =
-            Decompressor::new(BufReader::new(Cursor::new(buf)), Format::Gzip).unwrap();
+        let mut d = Decompressor::new(BufReader::new(Cursor::new(buf)), Format::Gzip).unwrap();
 
         let mut buf = Vec::new();
 

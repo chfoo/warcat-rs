@@ -18,13 +18,16 @@ pub struct ReaderConfig {
     pub compression_format: Format,
 }
 
+#[derive(Debug)]
 pub struct StateHeader;
+#[derive(Debug)]
 pub struct StateBlock {
     length: u64,
     read: u64,
 }
 
 /// WARC format reader
+#[derive(Debug)]
 pub struct Reader<S, R: Read> {
     state: S,
     input: BufferReader<Decompressor<BufferReader<R>>>,

@@ -1,4 +1,8 @@
 //! Parsing utilities.
+use std::{borrow::Cow, cell::LazyCell};
+
+use regex::bytes::Regex;
+
 use crate::error::ParseError;
 
 pub(crate) mod fields;
@@ -56,6 +60,12 @@ pub fn parse_u64_strict(value: &str) -> Result<u64, std::num::ParseIntError> {
     value.parse()
 }
 
+/// Remove line folding from a HTTP-like field value.
+pub fn remove_line_folding(value: &[u8]) -> Cow<'_, [u8]> {
+    let re = LazyCell::new(|| Regex::new(r"(?:\r\n|\n)[ \t]+").unwrap());
+    re.replace_all(value, b" ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -72,5 +82,16 @@ mod tests {
         assert_eq!(scan_header_deliminator(b"a\r\n\r\nz"), Some(5));
         assert_eq!(scan_header_deliminator(b"a\r\nb\r\n\r\nz"), Some(8));
         assert_eq!(scan_header_deliminator(b"a\nb\n\nz"), Some(5));
+    }
+
+    #[test]
+    fn test_remove_line_folding() {
+        assert_eq!(*remove_line_folding(b"abc"), *b"abc");
+        assert_eq!(*remove_line_folding(b"abc\r\n  def"), *b"abc def");
+        assert_eq!(
+            *remove_line_folding(b"abc\r\n  def\r\n\t123"),
+            *b"abc def 123"
+        );
+        assert_eq!(*remove_line_folding(b"abc\n  def"), *b"abc def");
     }
 }

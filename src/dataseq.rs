@@ -12,6 +12,8 @@ pub enum SeqFormat {
     JsonSeq,
     /// CBOR sequences (RFC 8742)
     CborSeq,
+    /// Comma separated value
+    Csv,
 }
 
 pub struct SeqReader<R: BufRead> {
@@ -41,15 +43,15 @@ impl<R: BufRead> SeqReader<R> {
         self.input
     }
 
-    pub fn get<T: DeserializeOwned>(&mut self) -> anyhow::Result<Option<T>> {
-        // TODO: remove anyhow from public API
+    pub fn get<T: DeserializeOwned>(&mut self) -> Result<Option<T>, SeqError> {
         match self.format {
             SeqFormat::JsonSeq => self.read_json(),
             SeqFormat::CborSeq => self.read_cbor(),
+            SeqFormat::Csv => todo!(),
         }
     }
 
-    fn read_json<T: DeserializeOwned>(&mut self) -> anyhow::Result<Option<T>> {
+    fn read_json<T: DeserializeOwned>(&mut self) -> Result<Option<T>, SeqError> {
         loop {
             let read_len = self.input.read_until(RS, &mut self.buf)?;
 
@@ -73,7 +75,7 @@ impl<R: BufRead> SeqReader<R> {
         }
     }
 
-    fn read_cbor<T: DeserializeOwned>(&mut self) -> anyhow::Result<Option<T>> {
+    fn read_cbor<T: DeserializeOwned>(&mut self) -> Result<Option<T>, SeqError> {
         if self.input.fill_buf()?.is_empty() {
             return Ok(None);
         }
@@ -116,14 +118,15 @@ impl<W: Write> SeqWriter<W> {
         self.output
     }
 
-    pub fn put<T: Serialize>(&mut self, value: T) -> std::io::Result<()> {
+    pub fn put<T: Serialize>(&mut self, value: T) -> Result<(), SeqError> {
         match self.format {
             SeqFormat::JsonSeq => self.write_json(value),
             SeqFormat::CborSeq => self.write_cbor(value),
+            SeqFormat::Csv => self.write_csv(value),
         }
     }
 
-    fn write_json<T: Serialize>(&mut self, value: T) -> std::io::Result<()> {
+    fn write_json<T: Serialize>(&mut self, value: T) -> Result<(), SeqError> {
         self.output.write_all(RS_SEQ)?;
         if self.pretty {
             serde_json::ser::to_writer_pretty(&mut self.output, &value)?;
@@ -135,11 +138,74 @@ impl<W: Write> SeqWriter<W> {
         Ok(())
     }
 
-    fn write_cbor<T: Serialize>(&mut self, value: T) -> std::io::Result<()> {
-        ciborium::into_writer(&value, &mut self.output).map_err(|e| match e {
-            ciborium::ser::Error::Io(e) => e,
-            ciborium::ser::Error::Value(e) => std::io::Error::other(e),
-        })
+    fn write_cbor<T: Serialize>(&mut self, value: T) -> Result<(), SeqError> {
+        ciborium::into_writer(&value, &mut self.output)?;
+        Ok(())
+    }
+
+    fn write_csv<T: Serialize>(&mut self, value: T) -> Result<(), SeqError> {
+        let mut writer = csv::WriterBuilder::new()
+            .has_headers(false)
+            .flexible(true)
+            .from_writer(&mut self.output);
+
+        writer.serialize(value)?;
+        writer.flush()?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum SeqError {
+    #[error("sequence serde error: {0}")]
+    Serde(Box<dyn std::error::Error + Send + Sync>),
+
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+}
+
+impl From<serde_json::Error> for SeqError {
+    fn from(value: serde_json::Error) -> Self {
+        if let Some(error) = value.io_error_kind() {
+            Self::Io(error.into())
+        } else {
+            Self::Serde(Box::new(value))
+        }
+    }
+}
+
+impl From<ciborium::de::Error<std::io::Error>> for SeqError {
+    fn from(value: ciborium::de::Error<std::io::Error>) -> Self {
+        if let ciborium::de::Error::Io(error) = value {
+            Self::Io(error)
+        } else {
+            Self::Serde(Box::new(value))
+        }
+    }
+}
+
+impl From<ciborium::ser::Error<std::io::Error>> for SeqError {
+    fn from(value: ciborium::ser::Error<std::io::Error>) -> Self {
+        if let ciborium::ser::Error::Io(error) = value {
+            Self::Io(error)
+        } else {
+            Self::Serde(Box::new(value))
+        }
+    }
+}
+
+impl From<csv::Error> for SeqError {
+    fn from(value: csv::Error) -> Self {
+        if value.is_io_error() {
+            if let csv::ErrorKind::Io(error) = value.into_kind() {
+                Self::Io(error)
+            } else {
+                unreachable!()
+            }
+        } else {
+            Self::Serde(Box::new(value))
+        }
     }
 }
 

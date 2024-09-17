@@ -114,4 +114,15 @@ mod tests {
         assert_eq!(output[2].name, b"n3");
         assert_eq!(output[2].value, b"v3");
     }
+
+    #[test]
+    fn test_field_pairs_line_folding() {
+        let (_remain, output) = field_pairs(b"n1:v1\r\n  1\r\nn2:v2\r\n").unwrap();
+
+        assert_eq!(output.len(), 2);
+        assert_eq!(output[0].name, b"n1");
+        assert_eq!(output[0].value, b"v1\r\n  1");
+        assert_eq!(output[1].name, b"n2");
+        assert_eq!(output[1].value, b"v2");
+    }
 }

@@ -16,6 +16,7 @@ pub trait LogicalPosition {
 ///
 /// This is an alternative to [`std::io::BufReader`] but implements [`LogicalPosition`]
 /// and allows getting a stream position without seekable streams.
+#[derive(Debug)]
 pub struct BufferReader<R: Read> {
     reader: R,
     buffer: Vec<u8>,

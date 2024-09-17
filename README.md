@@ -9,6 +9,13 @@ This project is a rewrite of the [warcat](https://github.com/chfoo/warcat/) proj
 ## Getting started
 
 * todo
+* [Downloads](https://github.com/chfoo/warcat-rs/releases)
+* [User guide ![Read the Docs](https://img.shields.io/readthedocs/warcat-rs)
+](https://warcat-rs.readthedocs.io/)
+* [Crate ![Crates.io Version](https://img.shields.io/crates/v/warcat)
+](https://crates.io/crates/warcat)
+* [API documentation ![docs.rs](https://img.shields.io/docsrs/warcat)
+](https://docs.rs/warcat)
 
 ## Compiling
 

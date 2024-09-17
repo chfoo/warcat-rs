@@ -66,9 +66,8 @@ impl WarcHeader {
 
         for pair in pairs {
             let name = String::from_utf8(pair.name.to_vec())?;
-            let value = String::from_utf8(pair.value.to_vec())?;
+            let value = String::from_utf8(crate::parse::remove_line_folding(pair.value).to_vec())?;
 
-            // FIXME: collapse obsolete folding in values
             header.fields.insert(name, value);
         }
 

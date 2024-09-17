@@ -8,25 +8,30 @@ edition = "2021"
 
 [lints.rust]
 # Temporary allow during development
-dead_code = "allow"
+# dead_code = "allow"
 
 [dependencies]
 # feature app
 anyhow = { version = "1.0.86", optional = true }
-ciborium = { version = "0.2.2", optional = true }
 clap = { version = "4.5.16", features = ["derive"], optional = true }
 indicatif = { version = "0.17.8", optional = true }
 serde = { version = "1.0.209", features = ["derive"], optional = true }
-serde_json = { version = "1.0.127", optional = true }
 tracing-subscriber = { version = "0.3.18", features = [
     "json",
 ], optional = true }
 # all
 brotli = "6.0.0"
 chrono = "0.4.38"
+ciborium = "0.2.2"
 crc32c = "0.6.8"
+csv = "1.3.0"
 flate2 = "1.0.31"
 nom = "7.1.3"
+regex = { version = "1.10.6", default-features = false, features = [
+    "std",
+    "perf",
+] }
+serde_json = "1.0.127"
 thiserror = "1.0.63"
 tracing = "0.1.40"
 uuid = { version = "1.10.0", features = ["v7"] }
@@ -37,11 +42,9 @@ zstd = "0.13.2"
 default = ["app"]
 app = [
     "dep:anyhow",
-    "dep:ciborium",
     "dep:clap",
     "dep:indicatif",
     "dep:serde",
-    "dep:serde_json",
     "dep:tracing-subscriber",
 ]
 
