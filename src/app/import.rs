@@ -3,7 +3,7 @@ use std::io::Write;
 use indicatif::ProgressBar;
 
 use crate::{
-    compress::CompressorConfig,
+    compress::{Format, Level},
     dataseq::{SeqFormat, SeqReader},
     header::WarcHeader,
     io::{BufferReader, LogicalPosition},
@@ -30,14 +30,12 @@ pub fn import(args: &ImportCommand) -> anyhow::Result<()> {
 
     let seq_format = args.format.into();
 
-    let compression = CompressorConfig {
-        format: args.compression.try_into_native(output_path)?,
-        level: args.compression_level.into(),
-    };
+    let format = args.compression.try_into_native(output_path)?;
+    let level = args.compression_level.into();
 
     let file_len = std::fs::metadata(input_path).map(|m| m.len()).ok();
 
-    Importer::new(input, output, seq_format, compression, file_len)?.run()?;
+    Importer::new(input, output, seq_format, (format, level), file_len)?.run()?;
 
     tracing::info!("opened file");
 
@@ -69,11 +67,14 @@ impl Importer {
         input: ProgramInput,
         output: ProgramOutput,
         seq_format: SeqFormat,
-        compression: CompressorConfig,
+        (compression, compression_level): (Format, Level),
         file_len: Option<u64>,
     ) -> anyhow::Result<Self> {
         let progress_bar = super::progress::make_bytes_progress_bar(file_len);
-        let config = WriterConfig { compression };
+        let config = WriterConfig {
+            compression,
+            compression_level,
+        };
         let output = Writer::new(output, config);
 
         Ok(Self {

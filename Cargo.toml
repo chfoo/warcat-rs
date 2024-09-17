@@ -35,11 +35,11 @@ serde_json = "1.0.127"
 thiserror = "1.0.63"
 tracing = "0.1.40"
 uuid = { version = "1.10.0", features = ["v7"] }
-zstd = "0.13.2"
+zstd = { version = "0.13.2", optional = true }
 
 [features]
 # app enabled temporarily during development.
-default = ["app"]
+default = ["app", "zstd"]
 app = [
     "dep:anyhow",
     "dep:clap",
@@ -47,6 +47,7 @@ app = [
     "dep:serde",
     "dep:tracing-subscriber",
 ]
+zstd = ["dep:zstd"]
 
 [[bin]]
 name = "warcat"

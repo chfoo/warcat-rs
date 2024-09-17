@@ -89,6 +89,7 @@ pub enum CompressionFormat {
     Auto,
     None,
     Gzip,
+    #[cfg(feature = "zstd")]
     Zstandard,
 }
 
@@ -113,6 +114,7 @@ impl TryFrom<CompressionFormat> for crate::compress::Format {
             CompressionFormat::Auto => Err(()),
             CompressionFormat::None => Ok(Self::Identity),
             CompressionFormat::Gzip => Ok(Self::Gzip),
+            #[cfg(feature = "zstd")]
             CompressionFormat::Zstandard => Ok(Self::Zstandard),
         }
     }

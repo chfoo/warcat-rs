@@ -2,7 +2,7 @@
 use std::io::{BufWriter, Write};
 
 use crate::{
-    compress::{Compressor, CompressorConfig},
+    compress::{Compressor, Format, Level},
     error::ParseIoError,
     header::WarcHeader,
 };
@@ -10,8 +10,10 @@ use crate::{
 /// Configuration for a [`Writer`].
 #[derive(Debug, Clone, Default)]
 pub struct WriterConfig {
-    /// Configuration for compressing the written file
-    pub compression: CompressorConfig,
+    /// Format for compressing the written file
+    pub compression: Format,
+    /// Compression level
+    pub compression_level: Level,
 }
 
 pub struct StateHeader;
@@ -33,7 +35,7 @@ impl<W: Write> Writer<StateHeader, W> {
     /// The destination writer should not be a compression stream. To enable
     /// compression, you must configure it with [`WriterConfig`].
     pub fn new(dest: W, config: WriterConfig) -> Self {
-        let output = Compressor::new(dest, config.compression.clone());
+        let output = Compressor::with_level(dest, config.compression, config.compression_level);
 
         Self {
             state: StateHeader,
@@ -100,7 +102,6 @@ impl<W: Write> Writer<StateBlock, W> {
         self.output.get_mut().restart_stream()?;
         Ok(())
     }
-
 
     /// Indicate writing the block portion of a WARC record has completed.
     ///

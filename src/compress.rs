@@ -14,6 +14,8 @@ use flate2::{
     bufread::{GzDecoder, ZlibDecoder},
     write::{GzEncoder, ZlibEncoder},
 };
+
+#[cfg(feature = "zstd")]
 use zstd::stream::{read::Decoder as ZstdDecoder, write::Encoder as ZstdEncoder};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,18 +40,35 @@ impl Default for Level {
 pub enum Format {
     /// No codec. Leave data unchanged.
     Identity,
+
     /// Zlib file format with Deflate codec.
     Deflate,
+
     /// Gzip file format and codec.
     ///
     /// Supports multiple streams.
     Gzip,
+
     /// Brotli raw codec.
     Brotli,
+
     /// Zstandard file format and codec.
     ///
     /// Supports multiple streams.
+    #[cfg(feature = "zstd")]
     Zstandard,
+}
+
+impl Format {
+    /// Returns whether the codec supports concatenated members.
+    pub fn is_multistream(&self) -> bool {
+        match self {
+            Self::Gzip => true,
+            #[cfg(feature = "zstd")]
+            Self::Zstandard => true,
+            _ => false,
+        }
+    }
 }
 
 impl Default for Format {
@@ -67,6 +86,7 @@ impl FromStr for Format {
             "deflate" => Ok(Self::Deflate),
             "gzip" | "x-gzip" | "gz" => Ok(Self::Gzip),
             "br" | "brotli" => Ok(Self::Brotli),
+            #[cfg(feature = "zstd")]
             "zstd" | "zstandard" | "zst" => Ok(Self::Zstandard),
             _ => Err(FormatParseError),
         }
@@ -80,6 +100,7 @@ impl Display for Format {
             Self::Deflate => write!(f, "deflate"),
             Self::Gzip => write!(f, "gzip"),
             Self::Brotli => write!(f, "br"),
+            #[cfg(feature = "zstd")]
             Self::Zstandard => write!(f, "zstd"),
         }
     }
@@ -100,6 +121,7 @@ enum Encoder<W: Write> {
     Deflate(ZlibEncoder<W>),
     Gzip(GzEncoder<W>),
     Brotli(Box<BrEncoder<W>>),
+    #[cfg(feature = "zstd")]
     Zstandard(ZstdEncoder<'static, W>),
     None,
 }
@@ -111,6 +133,7 @@ impl<W: Write> Encoder<W> {
             Self::Deflate(codec) => codec.get_ref(),
             Self::Gzip(codec) => codec.get_ref(),
             Self::Brotli(codec) => codec.get_ref(),
+            #[cfg(feature = "zstd")]
             Self::Zstandard(codec) => codec.get_ref(),
             Self::None => unreachable!(),
         }
@@ -122,6 +145,7 @@ impl<W: Write> Encoder<W> {
             Self::Deflate(codec) => codec.get_mut(),
             Self::Gzip(codec) => codec.get_mut(),
             Self::Brotli(codec) => codec.get_mut(),
+            #[cfg(feature = "zstd")]
             Self::Zstandard(codec) => codec.get_mut(),
             Self::None => unreachable!(),
         }
@@ -133,6 +157,7 @@ impl<W: Write> Encoder<W> {
             Self::Deflate(codec) => codec.finish(),
             Self::Gzip(codec) => codec.finish(),
             Self::Brotli(codec) => Ok(codec.into_inner()),
+            #[cfg(feature = "zstd")]
             Self::Zstandard(codec) => codec.finish(),
             Self::None => unreachable!(),
         }
@@ -146,6 +171,7 @@ impl<W: Write> Write for Encoder<W> {
             Self::Deflate(w) => w.write(buf),
             Self::Gzip(w) => w.write(buf),
             Self::Brotli(w) => w.write(buf),
+            #[cfg(feature = "zstd")]
             Self::Zstandard(w) => w.write(buf),
             Self::None => unreachable!(),
         }
@@ -157,33 +183,42 @@ impl<W: Write> Write for Encoder<W> {
             Self::Deflate(w) => w.flush(),
             Self::Gzip(w) => w.flush(),
             Self::Brotli(w) => w.flush(),
+            #[cfg(feature = "zstd")]
             Self::Zstandard(w) => w.flush(),
             Self::None => unreachable!(),
         }
     }
 }
 
-/// Configuration for `Compressor`.
-#[derive(Debug, Clone, Default)]
-pub struct CompressorConfig {
-    /// Format used for compressing the stream.
-    pub format: Format,
-    /// Level of compression.
-    pub level: Level,
-}
-
 /// Compression encoder for compressing streams.
 pub struct Compressor<W: Write> {
     encoder: Encoder<W>,
-    config: CompressorConfig,
+    format: Format,
+    level: Level,
 }
 
 impl<W: Write> Compressor<W> {
     /// Create a compressor for writing compressed data to the given writer.
-    pub fn new(dest: W, config: CompressorConfig) -> Self {
-        let encoder = create_encoder(dest, config.format, config.level);
+    pub fn new(dest: W, format: Format) -> Self {
+        let level = Level::default();
+        let encoder = create_encoder(dest, format, level);
 
-        Self { encoder, config }
+        Self {
+            encoder,
+            format,
+            level,
+        }
+    }
+
+    /// Create a compressor like [`Self::new()`] with a compression level.
+    pub fn with_level(dest: W, format: Format, level: Level) -> Self {
+        let encoder = create_encoder(dest, format, level);
+
+        Self {
+            encoder,
+            format,
+            level,
+        }
     }
 
     /// Return a reference of the underlying writer.
@@ -205,10 +240,10 @@ impl<W: Write> Compressor<W> {
     ///
     /// This function has effect for only multistream codecs.
     pub fn restart_stream(&mut self) -> std::io::Result<()> {
-        if matches!(self.config.format, Format::Gzip | Format::Zstandard) {
+        if self.format.is_multistream() {
             let encoder = std::mem::replace(&mut self.encoder, Encoder::None);
             let dest = encoder.finish()?;
-            self.encoder = create_encoder(dest, self.config.format, self.config.level);
+            self.encoder = create_encoder(dest, self.format, self.level);
         }
 
         Ok(())
@@ -230,6 +265,7 @@ enum Decoder<R: BufRead> {
     Deflate(ZlibDecoder<R>),
     Gzip(GzDecoder<R>),
     Brotli(Box<BrDecoder<R>>),
+    #[cfg(feature = "zstd")]
     Zstandard(ZstdDecoder<'static, R>),
     None,
 }
@@ -241,6 +277,7 @@ impl<R: BufRead> Debug for Decoder<R> {
             Self::Deflate(_arg0) => f.debug_tuple("Deflate").finish(),
             Self::Gzip(_arg0) => f.debug_tuple("Gzip").finish(),
             Self::Brotli(_arg0) => f.debug_tuple("Brotli").finish(),
+            #[cfg(feature = "zstd")]
             Self::Zstandard(_arg0) => f.debug_tuple("Zstandard").finish(),
             Self::None => write!(f, "None"),
         }
@@ -254,6 +291,7 @@ impl<R: BufRead> Decoder<R> {
             Self::Deflate(codec) => codec.get_ref(),
             Self::Gzip(codec) => codec.get_ref(),
             Self::Brotli(codec) => codec.get_ref(),
+            #[cfg(feature = "zstd")]
             Self::Zstandard(codec) => codec.get_ref(),
             Self::None => unreachable!(),
         }
@@ -265,6 +303,7 @@ impl<R: BufRead> Decoder<R> {
             Self::Deflate(codec) => codec.get_mut(),
             Self::Gzip(codec) => codec.get_mut(),
             Self::Brotli(codec) => codec.get_mut(),
+            #[cfg(feature = "zstd")]
             Self::Zstandard(codec) => codec.get_mut(),
             Self::None => unreachable!(),
         }
@@ -276,6 +315,7 @@ impl<R: BufRead> Decoder<R> {
             Self::Deflate(codec) => codec.into_inner(),
             Self::Gzip(codec) => codec.into_inner(),
             Self::Brotli(codec) => codec.into_inner(),
+            #[cfg(feature = "zstd")]
             Self::Zstandard(codec) => codec.finish(),
             Self::None => unreachable!(),
         }
@@ -289,6 +329,7 @@ impl<R: BufRead> Read for Decoder<R> {
             Decoder::Deflate(codec) => codec.read(buf),
             Decoder::Gzip(codec) => codec.read(buf),
             Decoder::Brotli(codec) => codec.read(buf),
+            #[cfg(feature = "zstd")]
             Decoder::Zstandard(codec) => codec.read(buf),
             Decoder::None => unreachable!(),
         }
@@ -370,6 +411,7 @@ fn get_encoder_level(format: Format, level: Level) -> i32 {
             Level::High => 7,
             Level::Low => 0,
         },
+        #[cfg(feature = "zstd")]
         Format::Zstandard => match level {
             Level::Balanced => 3,
             Level::High => 9,
@@ -389,6 +431,7 @@ fn create_encoder<W: Write>(dest: W, format: Format, level: Level) -> Encoder<W>
         )),
         Format::Gzip => Encoder::Gzip(GzEncoder::new(dest, flate2::Compression::new(level as u32))),
         Format::Brotli => Encoder::Brotli(Box::new(BrEncoder::new(dest, 4096, level as u32, 22))),
+        #[cfg(feature = "zstd")]
         Format::Zstandard => Encoder::Zstandard(ZstdEncoder::new(dest, level).unwrap()),
     }
 }
@@ -399,6 +442,7 @@ fn create_decoder<R: BufRead>(source: R, format: Format) -> std::io::Result<Deco
         Format::Deflate => Ok(Decoder::Deflate(ZlibDecoder::new(source))),
         Format::Gzip => Ok(Decoder::Gzip(GzDecoder::new(source))),
         Format::Brotli => Ok(Decoder::Brotli(Box::new(BrDecoder::new(source, 4096)))),
+        #[cfg(feature = "zstd")]
         Format::Zstandard => Ok(Decoder::Zstandard(
             ZstdDecoder::with_buffer(source)?.single_frame(),
         )),
@@ -414,11 +458,7 @@ mod tests {
     #[test]
     fn test_compress_decompress() {
         let buf = Vec::new();
-        let config = CompressorConfig {
-            format: Format::Brotli,
-            ..Default::default()
-        };
-        let mut c = Compressor::new(buf, config);
+        let mut c = Compressor::new(buf, Format::Brotli);
 
         c.write_all(b"Hello world").unwrap();
 
@@ -437,11 +477,7 @@ mod tests {
     #[test]
     fn test_compress_decompress_multistream() {
         let buf = Vec::new();
-        let config = CompressorConfig {
-            format: Format::Gzip,
-            ..Default::default()
-        };
-        let mut c = Compressor::new(buf, config);
+        let mut c = Compressor::new(buf, Format::Gzip);
 
         c.write_all(b"Hello").unwrap();
         c.restart_stream().unwrap();

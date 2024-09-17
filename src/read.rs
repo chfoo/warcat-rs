@@ -160,10 +160,7 @@ impl<R: Read> Reader<StateBlock, R> {
 
         self.input.fill_buffer_if_empty()?;
 
-        if (self.config.compression_format == Format::Gzip
-            || self.config.compression_format == Format::Zstandard)
-            && !self.input.buffer().is_empty()
-        {
+        if self.config.compression_format.is_multistream() && !self.input.buffer().is_empty() {
             tracing::warn!("file not using 'Record-at-time compression'");
         }
 
