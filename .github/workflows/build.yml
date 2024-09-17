@@ -1,0 +1,55 @@
+name: Cargo build
+
+on: workflow_dispatch
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        params:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gn
+          - os: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+          - os: windows-2022
+            target: aarch64-pc-windows-msvc
+          - os: macos-14
+            target: x86_64-apple-darwin
+          - os: macos-14
+            target: aarch64-apple-darwin
+
+    runs-on: ${{ matrix.params.os }}
+    steps:
+    - uses: kaven-universe/github-action-current-date-time@v1.4.0
+      name: Current date time
+      id: datetime
+      with:
+        format: YYYYMMDD_HHmmss
+    - uses: imesense/gha-echo-action@v0.2
+      name: Debug info
+      with:
+        input-string: |
+          OS: ${{ matrix.params.os }}
+          Target: ${{ matrix.params.target }}
+          Date: ${{ steps.datetime.outputs.time }}
+    - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ matrix.params.os }}.${{ matrix.params.target }}
+    - name: Install target
+      run: rustup target add ${{ matrix.params.target }}
+    - name: Run release build
+      run: cargo build --release --verbose --target ${{ matrix.params.target }}
+    - uses: actions/upload-artifact@v4
+      name: Save artifact
+      with:
+        name: artifact.${{ matrix.params.target }}.${{ steps.datetime.outputs.time }}
+        if-no-files-found: fail
+        path: |
+          target/${{ matrix.params.target }}/release/warcat
+          target/${{ matrix.params.target }}/release/warcat.exe
