@@ -23,8 +23,8 @@ pub fn import(args: &ImportCommand) -> anyhow::Result<()> {
     let span = tracing::info_span!("import file", path = ?output_path);
     let _span_guard = span.enter();
 
-    let input = ProgramInput::open(input_path)?;
-    let output = ProgramOutput::open(output_path)?;
+    let input = super::common::open_input(input_path)?;
+    let output = super::common::open_output(output_path)?;
 
     tracing::info!("opened file");
 
@@ -37,9 +37,11 @@ pub fn import(args: &ImportCommand) -> anyhow::Result<()> {
 
     let file_len = std::fs::metadata(input_path).map(|m| m.len()).ok();
 
-    let mut importer = Importer::new(input, output, seq_format, compression, file_len)?;
+    Importer::new(input, output, seq_format, compression, file_len)?.run()?;
 
-    importer.run()
+    tracing::info!("opened file");
+
+    Ok(())
 }
 
 enum State {
@@ -47,6 +49,12 @@ enum State {
     Header(Writer<StateHeader, ProgramOutput>),
     Block(Writer<StateBlock, ProgramOutput>),
     Done,
+}
+
+impl State {
+    fn take(&mut self) -> Self {
+        std::mem::replace(self, Self::None)
+    }
 }
 
 struct Importer {
@@ -97,7 +105,6 @@ impl Importer {
             }
         }
 
-        tracing::info!("closing file");
         self.progress_bar.finish();
         super::progress::global_progress_bar().remove(&self.progress_bar);
 
@@ -105,13 +112,13 @@ impl Importer {
     }
 
     fn process_message(&mut self, message: WarcMessage) -> anyhow::Result<()> {
-        let state = std::mem::replace(&mut self.state, State::None);
+        let state = self.state.take();
 
         match state {
             State::Header(writer) => match message {
                 WarcMessage::Header(header) => self.process_header(writer, header),
                 WarcMessage::EndOfFile => self.process_eof(writer),
-                WarcMessage::ExportMetadata(_) => {
+                WarcMessage::Metadata(_) => {
                     self.state = State::Header(writer);
                     Ok(())
                 }

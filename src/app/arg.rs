@@ -27,6 +27,7 @@ pub struct Args {
 pub enum Command {
     Export(ExportCommand),
     Import(ImportCommand),
+    List(ListCommand),
 }
 
 #[derive(Parser, Debug)]
@@ -60,6 +61,27 @@ pub struct ImportCommand {
 
     #[clap(long, default_value = "high")]
     pub compression_level: CompressionLevel,
+}
+
+#[derive(Parser, Debug)]
+pub struct ListCommand {
+    #[clap(long, default_value = "-")]
+    pub input: PathBuf,
+
+    #[clap(long, default_value = "auto")]
+    pub compression: CompressionFormat,
+
+    #[clap(long, default_value = "-")]
+    pub output: PathBuf,
+
+    #[clap(long, default_value = "json-seq")]
+    pub format: ListSerializationFormat,
+
+    #[clap(
+        long, value_delimiter = ',',
+        default_value = ":position,WARC-Record-ID,WARC-Type,Content-Type,WARC-Target-URI"
+    )]
+    pub field: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -124,6 +146,23 @@ impl From<SerializationFormat> for crate::dataseq::SeqFormat {
         match value {
             SerializationFormat::JsonSeq => Self::JsonSeq,
             SerializationFormat::CborSeq => Self::CborSeq,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum ListSerializationFormat {
+    JsonSeq,
+    CborSeq,
+    Csv,
+}
+
+impl From<ListSerializationFormat> for crate::dataseq::SeqFormat {
+    fn from(value: ListSerializationFormat) -> Self {
+        match value {
+            ListSerializationFormat::JsonSeq => Self::JsonSeq,
+            ListSerializationFormat::CborSeq => Self::CborSeq,
+            ListSerializationFormat::Csv => Self::Csv,
         }
     }
 }

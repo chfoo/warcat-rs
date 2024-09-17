@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum WarcMessage {
-    ExportMetadata(ExportMetadata),
+    Metadata(Metadata),
     Header(Header),
     BlockChunk(BlockChunk),
     BlockEnd(BlockEnd),
@@ -12,7 +12,7 @@ pub enum WarcMessage {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ExportMetadata {
+pub struct Metadata {
     pub file: PathBuf,
     pub position: u64,
 }
@@ -32,9 +32,3 @@ pub struct BlockChunk {
 pub struct BlockEnd {
     pub crc32c: u32,
 }
-
-// #[derive(Debug, Clone, Deserialize, Serialize)]
-// pub enum Response {
-//     Ok,
-//     Error(String),
-// }

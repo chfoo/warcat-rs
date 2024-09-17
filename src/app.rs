@@ -9,10 +9,12 @@ use self::arg::Command;
 #[doc(hidden)]
 pub mod arg;
 
+mod common;
 mod export;
 mod format;
 mod import;
 mod io;
+mod list;
 mod logging;
 mod model;
 mod progress;
@@ -43,6 +45,9 @@ fn run_impl() -> anyhow::Result<()> {
         }
         Command::Import(args) => {
             self::import::import(&args)?;
+        }
+        Command::List(args) => {
+            self::list::list(&args)?;
         }
     }
 
