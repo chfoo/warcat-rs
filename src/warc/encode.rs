@@ -7,38 +7,38 @@ use crate::{
     header::WarcHeader,
 };
 
-/// Configuration for a [`Writer`].
+/// Configuration for a [`Encoder`].
 #[derive(Debug, Clone, Default)]
-pub struct WriterConfig {
+pub struct EncoderConfig {
     /// Format for compressing the written file
     pub compression: Format,
     /// Compression level
     pub compression_level: Level,
 }
 
-pub struct StateHeader;
-pub struct StateBlock {
+pub struct EncStateHeader;
+pub struct EncStateBlock {
     length: u64,
     written: u64,
 }
 
 /// WARC format writer
-pub struct Writer<S, W: Write> {
+pub struct Encoder<S, W: Write> {
     state: S,
     output: BufWriter<Compressor<W>>,
-    config: WriterConfig,
+    config: EncoderConfig,
 }
 
-impl<W: Write> Writer<StateHeader, W> {
-    /// Create a new writer.
+impl<W: Write> Encoder<EncStateHeader, W> {
+    /// Create a new encoder.
     ///
     /// The destination writer should not be a compression stream. To enable
-    /// compression, you must configure it with [`WriterConfig`].
-    pub fn new(dest: W, config: WriterConfig) -> Self {
+    /// compression, you must configure it with [`EncoderConfig`].
+    pub fn new(dest: W, config: EncoderConfig) -> Self {
         let output = Compressor::with_level(dest, config.compression, config.compression_level);
 
         Self {
-            state: StateHeader,
+            state: EncStateHeader,
             output: BufWriter::new(output),
             config,
         }
@@ -54,14 +54,14 @@ impl<W: Write> Writer<StateHeader, W> {
     pub fn write_header(
         mut self,
         header: &WarcHeader,
-    ) -> Result<Writer<StateBlock, W>, ParseIoError> {
+    ) -> Result<Encoder<EncStateBlock, W>, ParseIoError> {
         header.validate()?;
         header.serialize(&mut self.output)?;
 
         let length = header.content_length()?;
 
-        Ok(Writer {
-            state: StateBlock { length, written: 0 },
+        Ok(Encoder {
+            state: EncStateBlock { length, written: 0 },
             output: self.output,
             config: self.config,
         })
@@ -76,7 +76,7 @@ impl<W: Write> Writer<StateHeader, W> {
     }
 }
 
-impl<W: Write> Writer<StateBlock, W> {
+impl<W: Write> Encoder<EncStateBlock, W> {
     fn write_block_impl(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let remain_length = self.state.length - self.state.written;
         let buf_upper = buf
@@ -107,7 +107,7 @@ impl<W: Write> Writer<StateBlock, W> {
     ///
     /// Consumes the writer and returns a typestate transitioned
     /// writer for writing a new record.
-    pub fn finish_block(self) -> std::io::Result<Writer<StateHeader, W>> {
+    pub fn finish_block(self) -> std::io::Result<Encoder<EncStateHeader, W>> {
         if self.state.length != self.state.written {
             return Err(std::io::Error::other(ContentLengthMismatch::new(
                 self.state.length,
@@ -115,15 +115,15 @@ impl<W: Write> Writer<StateBlock, W> {
             )));
         }
 
-        Ok(Writer {
-            state: StateHeader,
+        Ok(Encoder {
+            state: EncStateHeader,
             output: self.output,
             config: self.config,
         })
     }
 }
 
-impl<W: Write> Write for Writer<StateBlock, W> {
+impl<W: Write> Write for Encoder<EncStateBlock, W> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.write_block_impl(buf)
     }
@@ -154,7 +154,7 @@ mod tests {
     #[test]
     fn test_writer() {
         let buf = Vec::new();
-        let writer = Writer::new(buf, WriterConfig::default());
+        let writer = Encoder::new(buf, EncoderConfig::default());
 
         let header = WarcHeader::new(12, "a");
         let mut writer = writer.write_header(&header).unwrap();

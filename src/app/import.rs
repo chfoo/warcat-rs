@@ -7,7 +7,7 @@ use crate::{
     dataseq::{SeqFormat, SeqReader},
     header::WarcHeader,
     io::{BufferReader, LogicalPosition},
-    write::{StateBlock, StateHeader, Writer, WriterConfig},
+    warc::{Encoder, EncoderConfig, EncStateBlock, EncStateHeader},
 };
 
 use super::{
@@ -44,8 +44,8 @@ pub fn import(args: &ImportCommand) -> anyhow::Result<()> {
 
 enum State {
     None,
-    Header(Writer<StateHeader, ProgramOutput>),
-    Block(Writer<StateBlock, ProgramOutput>),
+    Header(Encoder<EncStateHeader, ProgramOutput>),
+    Block(Encoder<EncStateBlock, ProgramOutput>),
     Done,
 }
 
@@ -71,11 +71,11 @@ impl Importer {
         file_len: Option<u64>,
     ) -> anyhow::Result<Self> {
         let progress_bar = super::progress::make_bytes_progress_bar(file_len);
-        let config = WriterConfig {
+        let config = EncoderConfig {
             compression,
             compression_level,
         };
-        let output = Writer::new(output, config);
+        let output = Encoder::new(output, config);
 
         Ok(Self {
             progress_bar,
@@ -136,7 +136,7 @@ impl Importer {
 
     fn process_header(
         &mut self,
-        writer: Writer<StateHeader, ProgramOutput>,
+        writer: Encoder<EncStateHeader, ProgramOutput>,
         header: super::model::Header,
     ) -> anyhow::Result<()> {
         let mut warc_header = WarcHeader::empty();
@@ -158,7 +158,10 @@ impl Importer {
         Ok(())
     }
 
-    fn process_eof(&mut self, writer: Writer<StateHeader, ProgramOutput>) -> anyhow::Result<()> {
+    fn process_eof(
+        &mut self,
+        writer: Encoder<EncStateHeader, ProgramOutput>,
+    ) -> anyhow::Result<()> {
         writer.finish()?;
         self.state = State::Done;
         Ok(())
@@ -166,7 +169,7 @@ impl Importer {
 
     fn process_block(
         &mut self,
-        mut writer: Writer<StateBlock, ProgramOutput>,
+        mut writer: Encoder<EncStateBlock, ProgramOutput>,
         chunk: super::model::BlockChunk,
     ) -> anyhow::Result<()> {
         writer.write_all(&chunk.data)?;
@@ -179,7 +182,7 @@ impl Importer {
 
     fn process_block_end(
         &mut self,
-        writer: Writer<StateBlock, ProgramOutput>,
+        writer: Encoder<EncStateBlock, ProgramOutput>,
         end: super::model::BlockEnd,
     ) -> anyhow::Result<()> {
         if end.crc32c != self.crc32c {

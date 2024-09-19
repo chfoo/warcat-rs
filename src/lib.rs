@@ -17,10 +17,10 @@ pub mod dataseq;
 pub mod error;
 pub mod fields;
 pub mod header;
+pub mod http;
 pub mod io;
 pub mod parse;
-pub mod read;
-pub mod write;
+pub mod warc;
 
 #[cfg(feature = "app")]
 #[doc(hidden)]

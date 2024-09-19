@@ -7,7 +7,7 @@ use crate::{
     compress::Format,
     header::WarcHeader,
     io::LogicalPosition,
-    read::{Reader, ReaderConfig},
+    warc::{Decoder, DecoderConfig, DecStateBlock, DecStateHeader},
 };
 
 use super::io::{ProgramInput, ProgramOutput};
@@ -33,8 +33,8 @@ pub enum ReaderEvent<'a> {
 #[derive(Debug)]
 enum ReaderState {
     None,
-    Header(Reader<crate::read::StateHeader, ProgramInput>),
-    Block(Reader<crate::read::StateBlock, ProgramInput>),
+    Header(Decoder<DecStateHeader, ProgramInput>),
+    Block(Decoder<DecStateBlock, ProgramInput>),
 }
 
 impl ReaderState {
@@ -43,7 +43,7 @@ impl ReaderState {
     }
 
     #[allow(clippy::result_large_err)]
-    fn try_into_header(self) -> Result<Reader<crate::read::StateHeader, ProgramInput>, Self> {
+    fn try_into_header(self) -> Result<Decoder<DecStateHeader, ProgramInput>, Self> {
         if let Self::Header(v) = self {
             Ok(v)
         } else {
@@ -52,7 +52,7 @@ impl ReaderState {
     }
 
     #[allow(clippy::result_large_err)]
-    fn try_into_block(self) -> Result<Reader<crate::read::StateBlock, ProgramInput>, Self> {
+    fn try_into_block(self) -> Result<Decoder<DecStateBlock, ProgramInput>, Self> {
         if let Self::Block(v) = self {
             Ok(v)
         } else {
@@ -83,8 +83,8 @@ where
     ) -> anyhow::Result<Self> {
         let progress_bar = super::progress::make_bytes_progress_bar(file_len);
 
-        let config = ReaderConfig { compression_format };
-        let reader = Reader::new(input, config)?;
+        let config = DecoderConfig { compression_format };
+        let reader = Decoder::new(input, config)?;
 
         Ok(Self {
             progress_bar,

@@ -11,31 +11,39 @@ use crate::{
 const BUFFER_LENGTH: usize = 4096;
 const MAX_HEADER_LENGTH: usize = 32768;
 
-/// Configuration for a [`Reader`]
+/// Configuration for a [`Decoder`]
 #[derive(Debug, Clone, Default)]
-pub struct ReaderConfig {
+pub struct DecoderConfig {
     /// Compression format of the file to be read
     pub compression_format: Format,
 }
 
 #[derive(Debug)]
-pub struct StateHeader;
-#[derive(Debug)]
-pub struct StateBlock {
+pub struct DecStateHeader;
+#[derive(Debug, Default)]
+pub struct DecStateBlock {
     length: u64,
     read: u64,
+    boundary: [u8; 4],
+    boundary_len: usize,
 }
 
 /// WARC format reader
+///
+/// This struct is able keep its state consistent when the underlying reader
+/// returns an error such as [`std::io::ErrorKind::WouldBlock`]. It is safe
+/// for the caller to retry.
+/// This property allows the decoder to be used in a push-based fashion
+/// in alignment to the sans-IO philosophy.
 #[derive(Debug)]
-pub struct Reader<S, R: Read> {
+pub struct Decoder<S, R: Read> {
     state: S,
     input: BufferReader<Decompressor<BufferReader<R>>>,
-    config: ReaderConfig,
+    config: DecoderConfig,
     record_boundary_position: u64,
 }
 
-impl<S, R: Read> Reader<S, R> {
+impl<S, R: Read> Decoder<S, R> {
     /// Returns the position of the beginning of a WARC record.
     ///
     /// This function is intended for indexing a WARC file.
@@ -44,16 +52,16 @@ impl<S, R: Read> Reader<S, R> {
     }
 }
 
-impl<R: Read> Reader<StateHeader, R> {
-    /// Creates a new reader.
-    pub fn new(input: R, config: ReaderConfig) -> std::io::Result<Self> {
+impl<R: Read> Decoder<DecStateHeader, R> {
+    /// Creates a new decoder that reads from the given reader.
+    pub fn new(input: R, config: DecoderConfig) -> std::io::Result<Self> {
         let input = BufferReader::new(Decompressor::new(
             BufferReader::new(input),
             config.compression_format,
         )?);
 
         Ok(Self {
-            state: StateHeader,
+            state: DecStateHeader,
             input,
             config,
             record_boundary_position: 0,
@@ -76,7 +84,7 @@ impl<R: Read> Reader<StateHeader, R> {
     ///
     /// This function consumes the reader and returns a typestate transitioned
     /// reader for reading the block portion of a WARC record.
-    pub fn read_header(mut self) -> Result<(WarcHeader, Reader<StateBlock, R>), ParseIoError> {
+    pub fn read_header(mut self) -> Result<(WarcHeader, Decoder<DecStateBlock, R>), ParseIoError> {
         loop {
             if let Some(index) = crate::parse::scan_header_deliminator(self.input.buffer()) {
                 let header_bytes = &self.input.buffer()[0..index];
@@ -90,8 +98,11 @@ impl<R: Read> Reader<StateHeader, R> {
 
                 return Ok((
                     header,
-                    Reader {
-                        state: StateBlock { length, read: 0 },
+                    Decoder {
+                        state: DecStateBlock {
+                            length,
+                            ..Default::default()
+                        },
                         input: self.input,
                         config: self.config,
                         record_boundary_position: self.record_boundary_position,
@@ -129,7 +140,7 @@ impl<R: Read> Reader<StateHeader, R> {
     }
 }
 
-impl<R: Read> Reader<StateBlock, R> {
+impl<R: Read> Decoder<DecStateBlock, R> {
     fn read_block_impl(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         assert!(self.state.length >= self.state.read);
         let remain_length = self.state.length - self.state.read;
@@ -153,7 +164,7 @@ impl<R: Read> Reader<StateBlock, R> {
     ///
     /// Consumes the writer and returns a typestate transitioned writer that
     /// can read the next WARC record.
-    pub fn finish_block(mut self) -> Result<Reader<StateHeader, R>, ParseIoError> {
+    pub fn finish_block(mut self) -> Result<Decoder<DecStateHeader, R>, ParseIoError> {
         tracing::trace!("finish block");
         self.read_remaining_block()?;
         self.read_record_boundary()?;
@@ -170,8 +181,8 @@ impl<R: Read> Reader<StateBlock, R> {
             self.input.get_mut().restart_stream()?;
         }
 
-        Ok(Reader {
-            state: StateHeader,
+        Ok(Decoder {
+            state: DecStateHeader,
             input: self.input,
             config: self.config,
             record_boundary_position: self.record_boundary_position,
@@ -201,11 +212,22 @@ impl<R: Read> Reader<StateBlock, R> {
     }
 
     fn read_record_boundary(&mut self) -> Result<(), ParseIoError> {
-        let mut buf = [0u8; 4];
-        self.input.read_exact(&mut buf)?;
         tracing::trace!("read record boundary");
 
-        if &buf != b"\r\n\r\n" {
+        loop {
+            let remain_len = 4 - self.state.boundary_len;
+
+            if remain_len == 0 {
+                break;
+            }
+
+            let buf = &mut self.state.boundary[self.state.boundary_len..];
+            let read_len = self.input.read(buf)?;
+
+            self.state.boundary_len += read_len;
+        }
+
+        if &self.state.boundary != b"\r\n\r\n" {
             Err(ParseError::new(ParseErrorKind::InvalidRecordBoundary).into())
         } else {
             Ok(())
@@ -213,13 +235,13 @@ impl<R: Read> Reader<StateBlock, R> {
     }
 }
 
-impl<R: Read> Read for Reader<StateBlock, R> {
+impl<R: Read> Read for Decoder<DecStateBlock, R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.read_block_impl(buf)
     }
 }
 
-impl<R: Read, S> LogicalPosition for Reader<S, R> {
+impl<R: Read, S> LogicalPosition for Decoder<S, R> {
     fn logical_position(&self) -> u64 {
         if self.config.compression_format == Format::Identity {
             self.input.logical_position()
@@ -247,7 +269,7 @@ mod tests {
             \r\n\
             \r\n\r\n";
 
-        let reader = Reader::new(Cursor::new(data), ReaderConfig::default()).unwrap();
+        let reader = Decoder::new(Cursor::new(data), DecoderConfig::default()).unwrap();
 
         let (_header, mut reader) = reader.read_header().unwrap();
         let mut block = Vec::new();
