@@ -3,20 +3,28 @@
 //! Some codecs support multistreams which are compressed files concatenated
 //! together. The purpose is to allow fast seeking within a file to a desired
 //! record.
+
+// FIXME: For zstd, stopping properly at a frame does not work:
+// https://github.com/gyscos/zstd-rs/issues/15
 use std::{
     fmt::{Debug, Display},
     io::{BufRead, Read, Write},
     str::FromStr,
 };
 
-use brotli::{CompressorWriter as BrEncoder, Decompressor as BrDecoder};
+use brotli::{
+    writer::DecompressorWriter as BrPushDecoder, CompressorWriter as BrEncoder,
+    Decompressor as BrDecoder,
+};
 use flate2::{
     bufread::{GzDecoder, ZlibDecoder},
-    write::{GzEncoder, ZlibEncoder},
+    write::{GzDecoder as GzPushDecoder, GzEncoder, ZlibDecoder as ZlibPushDecoder, ZlibEncoder},
 };
 
 #[cfg(feature = "zstd")]
-use zstd::stream::{read::Decoder as ZstdDecoder, write::Encoder as ZstdEncoder};
+use zstd::stream::{
+    read::Decoder as ZstdDecoder, write::Decoder as ZstdPushDecoder, write::Encoder as ZstdEncoder,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Level of compression.
@@ -190,7 +198,7 @@ impl<W: Write> Write for Encoder<W> {
     }
 }
 
-/// Compression encoder for compressing streams.
+/// Encoder for compressing streams.
 pub struct Compressor<W: Write> {
     encoder: Encoder<W>,
     format: Format,
@@ -336,7 +344,7 @@ impl<R: BufRead> Read for Decoder<R> {
     }
 }
 
-/// Compression decoder for decompressing streams.
+/// Decoder for decompressing streams.
 #[derive(Debug)]
 pub struct Decompressor<R: BufRead> {
     decoder: Decoder<R>,
@@ -390,6 +398,156 @@ impl<R: BufRead> Decompressor<R> {
 impl<R: BufRead> Read for Decompressor<R> {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.decoder.read(buf)
+    }
+}
+
+enum PushDecoder<W: Write> {
+    Identity(W),
+    Deflate(ZlibPushDecoder<W>),
+    Gzip(GzPushDecoder<W>),
+    Brotli(Box<BrPushDecoder<W>>),
+    #[cfg(feature = "zstd")]
+    Zstandard(ZstdPushDecoder<'static, W>),
+    None,
+}
+
+impl<W: Write> Debug for PushDecoder<W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Identity(_arg0) => f.debug_tuple("Identity").finish(),
+            Self::Deflate(_arg0) => f.debug_tuple("Deflate").finish(),
+            Self::Gzip(_arg0) => f.debug_tuple("Gzip").finish(),
+            Self::Brotli(_arg0) => f.debug_tuple("Brotli").finish(),
+            #[cfg(feature = "zstd")]
+            Self::Zstandard(_arg0) => f.debug_tuple("Zstandard").finish(),
+            Self::None => write!(f, "None"),
+        }
+    }
+}
+
+impl<W: Write> PushDecoder<W> {
+    fn get_ref(&self) -> &W {
+        match self {
+            Self::Identity(v) => v,
+            Self::Deflate(codec) => codec.get_ref(),
+            Self::Gzip(codec) => codec.get_ref(),
+            Self::Brotli(codec) => codec.get_ref(),
+            #[cfg(feature = "zstd")]
+            Self::Zstandard(codec) => codec.get_ref(),
+            Self::None => unreachable!(),
+        }
+    }
+
+    fn get_mut(&mut self) -> &mut W {
+        match self {
+            Self::Identity(v) => v,
+            Self::Deflate(codec) => codec.get_mut(),
+            Self::Gzip(codec) => codec.get_mut(),
+            Self::Brotli(codec) => codec.get_mut(),
+            #[cfg(feature = "zstd")]
+            Self::Zstandard(codec) => codec.get_mut(),
+            Self::None => unreachable!(),
+        }
+    }
+
+    fn into_inner(self) -> std::io::Result<W> {
+        match self {
+            Self::Identity(v) => Ok(v),
+            Self::Deflate(codec) => codec.finish(),
+            Self::Gzip(codec) => codec.finish(),
+            Self::Brotli(mut codec) => {
+                codec.close()?;
+                match codec.into_inner() {
+                    Ok(v) => Ok(v),
+                    Err(v) => Ok(v),
+                }
+            }
+            #[cfg(feature = "zstd")]
+            Self::Zstandard(codec) => Ok(codec.into_inner()),
+            Self::None => unreachable!(),
+        }
+    }
+}
+
+impl<W: Write> Write for PushDecoder<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            Self::Identity(w) => w.write(buf),
+            Self::Deflate(w) => w.write(buf),
+            Self::Gzip(w) => w.write(buf),
+            Self::Brotli(w) => w.write(buf),
+            #[cfg(feature = "zstd")]
+            Self::Zstandard(w) => w.write(buf),
+            Self::None => unreachable!(),
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            Self::Identity(w) => w.flush(),
+            Self::Deflate(w) => w.flush(),
+            Self::Gzip(w) => w.flush(),
+            Self::Brotli(w) => w.flush(),
+            #[cfg(feature = "zstd")]
+            Self::Zstandard(w) => w.flush(),
+            Self::None => unreachable!(),
+        }
+    }
+}
+
+/// Push-based decoder for decompressing streams.
+///
+/// This is similar to [`Decompressor`] except that the user is responsible for
+/// moving data.
+#[derive(Debug)]
+pub struct PushDecompressor<W: Write> {
+    decoder: PushDecoder<W>,
+    format: Format,
+}
+
+impl<W: Write> PushDecompressor<W> {
+    /// Create a decompressor.for writing the decompressed data.
+    pub fn new(output: W, format: Format) -> std::io::Result<Self> {
+        Ok(Self {
+            decoder: create_push_decoder(output, format)?,
+            format,
+        })
+    }
+
+    /// Return a reference of the underlying writer.
+    pub fn get_ref(&self) -> &W {
+        self.decoder.get_ref()
+    }
+
+    /// Return a mutable reference of the underlying writer.
+    pub fn get_mut(&mut self) -> &mut W {
+        self.decoder.get_mut()
+    }
+
+    /// Return the underlying writer.
+    pub fn into_inner(self) -> std::io::Result<W> {
+        self.decoder.into_inner()
+    }
+
+    /// Prepares the codec for reading a new stream.
+    ///
+    /// This function is only to be used for multistream codecs.
+    pub fn restart_stream(&mut self) -> std::io::Result<()> {
+        let decoder = std::mem::replace(&mut self.decoder, PushDecoder::None);
+        let dest = decoder.into_inner()?;
+        self.decoder = create_push_decoder(dest, self.format)?;
+
+        Ok(())
+    }
+}
+
+impl<W: Write> Write for PushDecompressor<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.decoder.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.decoder.flush()
     }
 }
 
@@ -449,6 +607,20 @@ fn create_decoder<R: BufRead>(source: R, format: Format) -> std::io::Result<Deco
     }
 }
 
+fn create_push_decoder<W: Write>(dest: W, format: Format) -> std::io::Result<PushDecoder<W>> {
+    match format {
+        Format::Identity => Ok(PushDecoder::Identity(dest)),
+        Format::Deflate => Ok(PushDecoder::Deflate(ZlibPushDecoder::new(dest))),
+        Format::Gzip => Ok(PushDecoder::Gzip(GzPushDecoder::new(dest))),
+        Format::Brotli => Ok(PushDecoder::Brotli(Box::new(BrPushDecoder::new(
+            dest, 4096,
+        )))),
+        // FIXME: no single frame option
+        #[cfg(feature = "zstd")]
+        Format::Zstandard => Ok(PushDecoder::Zstandard(ZstdPushDecoder::new(dest)?)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::{BufReader, Cursor};
@@ -470,6 +642,26 @@ mod tests {
         let mut buf = Vec::new();
         d.read_to_end(&mut buf).unwrap();
         d.into_inner();
+
+        assert_eq!(&buf, b"Hello world");
+    }
+
+    #[test]
+    fn test_compress_push_decompress() {
+        let buf = Vec::new();
+        let mut c = Compressor::new(buf, Format::Brotli);
+
+        c.write_all(b"Hello world").unwrap();
+
+        let buf = c.finish().unwrap();
+        assert!(!buf.is_empty());
+
+        let mut d = PushDecompressor::new(Vec::new(), Format::Brotli).unwrap();
+
+        d.write_all(&buf).unwrap();
+        d.flush().unwrap();
+
+        let buf = d.into_inner().unwrap();
 
         assert_eq!(&buf, b"Hello world");
     }
