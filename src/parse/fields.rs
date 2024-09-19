@@ -37,7 +37,7 @@ pub fn field_name(input: &[u8]) -> IResult<&[u8], &[u8]> {
     token(input)
 }
 
-fn token(input: &[u8]) -> IResult<&[u8], &[u8]> {
+pub fn token(input: &[u8]) -> IResult<&[u8], &[u8]> {
     take_while1(is_tchar)(input)
 }
 
@@ -69,7 +69,7 @@ fn is_tchar(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b"!#$%&'*+-.^_`|~".contains(&b)
 }
 
-fn is_obs_text(b: u8) -> bool {
+pub fn is_obs_text(b: u8) -> bool {
     b >= 0x80
 }
 

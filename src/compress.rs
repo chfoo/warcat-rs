@@ -198,7 +198,21 @@ impl<W: Write> Write for Encoder<W> {
     }
 }
 
+impl<W: Write> Debug for Encoder<W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Identity(_arg0) => f.debug_tuple("Identity").finish(),
+            Self::Deflate(_arg0) => f.debug_tuple("Deflate").finish(),
+            Self::Gzip(_arg0) => f.debug_tuple("Gzip").finish(),
+            Self::Brotli(_arg0) => f.debug_tuple("Brotli").finish(),
+            Self::Zstandard(_arg0) => f.debug_tuple("Zstandard").finish(),
+            Self::None => write!(f, "None"),
+        }
+    }
+}
+
 /// Encoder for compressing streams.
+#[derive(Debug)]
 pub struct Compressor<W: Write> {
     encoder: Encoder<W>,
     format: Format,

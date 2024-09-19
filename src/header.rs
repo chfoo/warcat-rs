@@ -123,3 +123,26 @@ impl WarcHeader {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_header_parse_serialize() {
+        let data = "WARC/1.1\r\n\
+            WARC-Record-ID: <example:123456>\r\n\
+            Content-Length: 0\r\n\
+            \r\n";
+        let header = WarcHeader::parse(data.as_bytes()).unwrap();
+
+        assert_eq!(&header.version, "WARC/1.1");
+        assert_eq!(header.fields.len(), 2);
+
+        let mut buf = Vec::new();
+
+        header.serialize(&mut buf).unwrap();
+
+        assert_eq!(&buf, data.as_bytes());
+    }
+}
