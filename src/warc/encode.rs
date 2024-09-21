@@ -3,7 +3,7 @@ use std::io::{BufWriter, Write};
 
 use crate::{
     compress::{Compressor, Format, Level},
-    error::ParseIoError,
+    error::GeneralError,
     header::WarcHeader,
 };
 
@@ -54,7 +54,7 @@ impl<W: Write> Encoder<EncStateHeader, W> {
     pub fn write_header(
         mut self,
         header: &WarcHeader,
-    ) -> Result<Encoder<EncStateBlock, W>, ParseIoError> {
+    ) -> Result<Encoder<EncStateBlock, W>, GeneralError> {
         header.validate()?;
         header.serialize(&mut self.output)?;
 

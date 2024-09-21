@@ -3,10 +3,11 @@ use std::{
     io::{Read, Write},
 };
 
-use crate::http::h1::error::{IoProtocolError, ProtocolError};
+use crate::error::{GeneralError, ProtocolError, ProtocolErrorKind};
 
 use super::Codec;
 
+#[derive(Debug)]
 pub struct ChunkedEncoder {}
 
 impl ChunkedEncoder {
@@ -17,7 +18,7 @@ impl ChunkedEncoder {
 }
 
 impl<W: Write> Codec<W> for ChunkedEncoder {
-    fn transform(&mut self, input: &[u8], mut output: W) -> Result<(), IoProtocolError> {
+    fn transform(&mut self, input: &[u8], mut output: W) -> Result<(), GeneralError> {
         write!(output, "{:x}\r\n", input.len())?;
         output.write_all(input)?;
         output.write_all(b"\r\n")?;
@@ -33,6 +34,7 @@ enum ChunkedDecoderState {
     Done,
 }
 
+#[derive(Debug)]
 pub struct ChunkedDecoder {
     state: ChunkedDecoderState,
     buf: VecDeque<u8>,
@@ -51,7 +53,7 @@ impl ChunkedDecoder {
         }
     }
 
-    fn process_size_line(&mut self) -> Result<bool, IoProtocolError> {
+    fn process_size_line(&mut self) -> Result<bool, GeneralError> {
         let buf_len = self.buf.len();
 
         match parse::chunk(self.buf.make_contiguous()) {
@@ -72,13 +74,17 @@ impl ChunkedDecoder {
 
                     Ok(true)
                 }
-                nom::Err::Error(_) => Err(ProtocolError::InvalidChunkedEncoding.into()),
-                nom::Err::Failure(_) => Err(ProtocolError::InvalidChunkedEncoding.into()),
+                nom::Err::Error(_) => {
+                    Err(ProtocolError::new(ProtocolErrorKind::InvalidChunkedEncoding).into())
+                }
+                nom::Err::Failure(_) => {
+                    Err(ProtocolError::new(ProtocolErrorKind::InvalidChunkedEncoding).into())
+                }
             },
         }
     }
 
-    fn process_chunk<W: Write>(&mut self, output: &mut W) -> Result<bool, IoProtocolError> {
+    fn process_chunk<W: Write>(&mut self, output: &mut W) -> Result<bool, GeneralError> {
         debug_assert!(self.chunk_position <= self.chunk_len);
 
         let chunk_remain_len = self.chunk_len - self.chunk_position;
@@ -95,7 +101,7 @@ impl ChunkedDecoder {
         Ok(false)
     }
 
-    fn process_boundary(&mut self) -> Result<bool, IoProtocolError> {
+    fn process_boundary(&mut self) -> Result<bool, GeneralError> {
         match parse::chunk_boundary(self.buf.make_contiguous()) {
             Ok((_remain, consumed)) => {
                 let len = consumed.len();
@@ -111,15 +117,19 @@ impl ChunkedDecoder {
             }
             Err(error) => match error {
                 nom::Err::Incomplete(_needed) => Ok(true),
-                nom::Err::Error(_) => Err(ProtocolError::InvalidChunkedEncoding.into()),
-                nom::Err::Failure(_) => Err(ProtocolError::InvalidChunkedEncoding.into()),
+                nom::Err::Error(_) => {
+                    Err(ProtocolError::new(ProtocolErrorKind::InvalidChunkedEncoding).into())
+                }
+                nom::Err::Failure(_) => {
+                    Err(ProtocolError::new(ProtocolErrorKind::InvalidChunkedEncoding).into())
+                }
             },
         }
     }
 }
 
 impl<W: Write> Codec<W> for ChunkedDecoder {
-    fn transform(&mut self, input: &[u8], mut output: W) -> Result<(), IoProtocolError> {
+    fn transform(&mut self, input: &[u8], mut output: W) -> Result<(), GeneralError> {
         self.buf.write_all(input)?;
 
         // FIXME: handle trailer
@@ -129,7 +139,9 @@ impl<W: Write> Codec<W> for ChunkedDecoder {
                 ChunkedDecoderState::SizeLine => self.process_size_line()?,
                 ChunkedDecoderState::ChunkData => self.process_chunk(&mut output)?,
                 ChunkedDecoderState::Boundary => self.process_boundary()?,
-                ChunkedDecoderState::Done => return Err(ProtocolError::LastChunk.into()),
+                ChunkedDecoderState::Done => {
+                    return Err(ProtocolError::new(ProtocolErrorKind::LastChunk).into())
+                }
             };
 
             if self.buf.is_empty() || do_break {

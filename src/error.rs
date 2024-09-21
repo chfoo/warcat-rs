@@ -7,17 +7,19 @@ use std::{
     string::FromUtf8Error,
 };
 
-/// Error for during parsing from a IO stream.
 #[derive(Debug, thiserror::Error)]
-pub enum ParseIoError {
+pub enum GeneralError {
     #[error(transparent)]
     Parse(#[from] ParseError),
+
+    #[error(transparent)]
+    Protocol(#[from] ProtocolError),
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
 }
 
-impl ParseIoError {
+impl GeneralError {
     pub fn is_parse(&self) -> bool {
         matches!(self, Self::Parse(..))
     }
@@ -32,6 +34,26 @@ impl ParseIoError {
 
     pub fn try_into_parse(self) -> Result<ParseError, Self> {
         if let Self::Parse(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
+
+    pub fn is_protocol(&self) -> bool {
+        matches!(self, Self::Protocol(..))
+    }
+
+    pub fn as_protocol(&self) -> Option<&ProtocolError> {
+        if let Self::Protocol(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn try_into_protocol(self) -> Result<ProtocolError, Self> {
+        if let Self::Protocol(v) = self {
             Ok(v)
         } else {
             Err(self)
@@ -107,13 +129,20 @@ impl ParseError {
         self
     }
 
-    pub fn with_source<T: Into<Box<dyn std::error::Error + Send + Sync>>>(mut self, source: T) -> Self {
+    pub fn with_source<T: Into<Box<dyn std::error::Error + Send + Sync>>>(
+        mut self,
+        source: T,
+    ) -> Self {
         self.source = Some(source.into());
         self
     }
 
     pub fn append_from(&mut self, other: &Self) {
-        todo!()
+        if let Some(other_position) = other.position() {
+            if let Some(position) = &mut self.context.position {
+                *position += other_position;
+            }
+        }
     }
 
     pub fn file(&self) -> Option<&Path> {
@@ -193,11 +222,7 @@ pub enum ParseErrorKind {
     IncompleteInput,
     Syntax,
     InvalidUtf8,
-    HeaderTooBig,
-    NoContentLength,
-    ContentLengthMismatch,
-    InvalidContentLength,
-    InvalidRecordBoundary,
+    InputTooLong,
     Other,
 }
 
@@ -207,11 +232,7 @@ impl Display for ParseErrorKind {
             Self::IncompleteInput => write!(f, "incomplete input"),
             Self::Syntax => write!(f, "syntax error"),
             Self::InvalidUtf8 => write!(f, "invalid UTF-8"),
-            Self::HeaderTooBig => write!(f, "header too big"),
-            Self::NoContentLength => write!(f, "no content length"),
-            Self::ContentLengthMismatch => write!(f, "content length mismatch"),
-            Self::InvalidContentLength => write!(f, "invalid content length"),
-            Self::InvalidRecordBoundary => write!(f, "invalid record boundary"),
+            Self::InputTooLong => write!(f, "input too long"),
             Self::Other => write!(f, "other"),
         }
     }
@@ -223,4 +244,64 @@ struct ParseContext {
     position: Option<u64>,
     snippet: Option<String>,
     id: Option<String>,
+}
+
+/// Error for protocols.
+#[derive(Debug, thiserror::Error)]
+#[error("protocol error: {kind}")]
+pub struct ProtocolError {
+    kind: ProtocolErrorKind,
+    backtrace: Option<Box<Backtrace>>,
+    source: Option<Box<dyn std::error::Error + Send + Sync>>,
+}
+
+impl ProtocolError {
+    pub fn new(kind: ProtocolErrorKind) -> Self {
+        Self {
+            kind,
+            backtrace: Some(Box::new(std::backtrace::Backtrace::capture())),
+            source: None,
+        }
+    }
+
+    pub fn other(error: Box<dyn std::error::Error + Send + Sync>) -> Self {
+        Self::new(ProtocolErrorKind::Other).with_source(error)
+    }
+
+    pub fn with_source<T: Into<Box<dyn std::error::Error + Send + Sync>>>(
+        mut self,
+        source: T,
+    ) -> Self {
+        self.source = Some(source.into());
+        self
+    }
+}
+
+#[derive(Debug)]
+pub enum ProtocolErrorKind {
+    HeaderTooBig,
+    NoContentLength,
+    ContentLengthMismatch,
+    InvalidContentLength,
+    InvalidRecordBoundary,
+    UnsupportedCompressionFormat,
+    InvalidChunkedEncoding,
+    LastChunk,
+    Other,
+}
+
+impl Display for ProtocolErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::HeaderTooBig => write!(f, "header too big"),
+            Self::NoContentLength => write!(f, "no content length"),
+            Self::ContentLengthMismatch => write!(f, "content length mismatch"),
+            Self::InvalidContentLength => write!(f, "invalid content length"),
+            Self::InvalidRecordBoundary => write!(f, "invalid record boundary"),
+            Self::UnsupportedCompressionFormat => write!(f, "unsupported compression format"),
+            Self::InvalidChunkedEncoding => write!(f, "invalid chunked encoding"),
+            Self::LastChunk => write!(f, "last chunk"),
+            Self::Other => write!(f, "other"),
+        }
+    }
 }

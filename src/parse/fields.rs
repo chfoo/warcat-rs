@@ -2,9 +2,9 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_while, take_while1, take_while_m_n},
     character::complete::{line_ending, space0, space1},
-    combinator::{map, recognize},
+    combinator::{all_consuming, map, recognize},
     multi::{many0, many0_count},
-    sequence::{delimited, pair, separated_pair, terminated},
+    sequence::{delimited, pair, preceded, separated_pair, terminated},
     IResult,
 };
 
@@ -65,7 +65,7 @@ fn is_field_char(b: u8) -> bool {
     is_field_vchar(b) || b == b' ' || b == b'\t'
 }
 
-fn is_tchar(b: u8) -> bool {
+pub fn is_tchar(b: u8) -> bool {
     b.is_ascii_alphanumeric() || b"!#$%&'*+-.^_`|~".contains(&b)
 }
 
@@ -75,6 +75,50 @@ pub fn is_obs_text(b: u8) -> bool {
 
 fn obs_fold(input: &[u8]) -> IResult<&[u8], &[u8]> {
     recognize(pair(line_ending, space1))(input)
+}
+
+pub struct MediaType<'a> {
+    pub type_: &'a [u8],
+    pub subtype: &'a [u8],
+    pub parameters: Vec<(&'a [u8], &'a [u8])>,
+}
+
+pub fn media_type(input: &[u8]) -> IResult<&[u8], MediaType<'_>> {
+    let types = separated_pair(type_, tag(b"/"), subtype);
+
+    map(
+        all_consuming(pair(types, parameters)),
+        |(types, parameters)| MediaType {
+            type_: types.0,
+            subtype: types.1,
+            parameters,
+        },
+    )(input)
+}
+
+fn type_(input: &[u8]) -> IResult<&[u8], &[u8]> {
+    token(input)
+}
+
+fn subtype(input: &[u8]) -> IResult<&[u8], &[u8]> {
+    token(input)
+}
+
+fn parameters(input: &[u8]) -> IResult<&[u8], Vec<(&[u8], &[u8])>> {
+    many0(preceded(delimited(space0, tag(";"), space0), parameter))(input)
+}
+
+fn parameter(input: &[u8]) -> IResult<&[u8], (&[u8], &[u8])> {
+    separated_pair(attribute, tag("="), value)(input)
+}
+
+fn attribute(input: &[u8]) -> IResult<&[u8], &[u8]> {
+    token(input)
+}
+
+fn value(input: &[u8]) -> IResult<&[u8], &[u8]> {
+    // FIXME: implement quoted-string
+    token(input)
 }
 
 #[cfg(test)]

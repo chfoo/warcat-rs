@@ -3,7 +3,7 @@ use std::io::{BufRead, Read};
 
 use crate::{
     compress::{Decompressor, Format},
-    error::{ParseError, ParseErrorKind, ParseIoError},
+    error::{GeneralError, ProtocolError, ProtocolErrorKind},
     header::WarcHeader,
     io::{BufferReader, LogicalPosition},
 };
@@ -84,7 +84,7 @@ impl<R: Read> Decoder<DecStateHeader, R> {
     ///
     /// This function consumes the reader and returns a typestate transitioned
     /// reader for reading the block portion of a WARC record.
-    pub fn read_header(mut self) -> Result<(WarcHeader, Decoder<DecStateBlock, R>), ParseIoError> {
+    pub fn read_header(mut self) -> Result<(WarcHeader, Decoder<DecStateBlock, R>), GeneralError> {
         loop {
             if let Some(index) = crate::parse::scan_header_deliminator(self.input.buffer()) {
                 let header_bytes = &self.input.buffer()[0..index];
@@ -94,7 +94,7 @@ impl<R: Read> Decoder<DecStateHeader, R> {
                 let warc_type = header.fields.get("WARC-Type");
                 self.input.consume(index);
 
-                tracing::info!(record_id, warc_type, content_length = length, "read record");
+                tracing::trace!(record_id, warc_type, content_length = length, "read record");
 
                 return Ok((
                     header,
@@ -115,11 +115,11 @@ impl<R: Read> Decoder<DecStateHeader, R> {
         }
     }
 
-    fn check_max_header_length(&self) -> Result<(), ParseError> {
+    fn check_max_header_length(&self) -> Result<(), ProtocolError> {
         tracing::trace!("check max header length");
 
         if self.input.buffer().len() > MAX_HEADER_LENGTH {
-            Err(ParseError::new(ParseErrorKind::HeaderTooBig))
+            Err(ProtocolError::new(ProtocolErrorKind::HeaderTooBig))
         } else {
             Ok(())
         }
@@ -164,7 +164,7 @@ impl<R: Read> Decoder<DecStateBlock, R> {
     ///
     /// Consumes the writer and returns a typestate transitioned writer that
     /// can read the next WARC record.
-    pub fn finish_block(mut self) -> Result<Decoder<DecStateHeader, R>, ParseIoError> {
+    pub fn finish_block(mut self) -> Result<Decoder<DecStateHeader, R>, GeneralError> {
         tracing::trace!("finish block");
         self.read_remaining_block()?;
         self.read_record_boundary()?;
@@ -211,7 +211,7 @@ impl<R: Read> Decoder<DecStateBlock, R> {
         Ok(())
     }
 
-    fn read_record_boundary(&mut self) -> Result<(), ParseIoError> {
+    fn read_record_boundary(&mut self) -> Result<(), GeneralError> {
         tracing::trace!("read record boundary");
 
         loop {
@@ -228,7 +228,7 @@ impl<R: Read> Decoder<DecStateBlock, R> {
         }
 
         if &self.state.boundary != b"\r\n\r\n" {
-            Err(ParseError::new(ParseErrorKind::InvalidRecordBoundary).into())
+            Err(ProtocolError::new(ProtocolErrorKind::InvalidRecordBoundary).into())
         } else {
             Ok(())
         }

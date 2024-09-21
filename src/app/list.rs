@@ -6,7 +6,7 @@ pub fn list(args: &ListCommand) -> anyhow::Result<()> {
     let input_path = &args.input;
     let output_path = &args.output;
 
-    let span = tracing::info_span!("list file", path = ?input_path);
+    let span = tracing::info_span!("list", path = ?input_path);
     let _span_guard = span.enter();
 
     let input = super::common::open_input(input_path)?;

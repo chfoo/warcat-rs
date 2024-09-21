@@ -10,11 +10,12 @@
 //! the library portion. For details on the CLI, see the
 //! [user guide](https://warcat-rs.readthedocs.io/).
 //!
-//! The main entrypoints to this library is [`read::Reader`] and [`write::Writer`].
+//! The main entrypoints to this library is [`warc::Decoder`] and [`warc::Encoder`].
 
 pub mod compress;
 pub mod dataseq;
 pub mod error;
+pub mod extract;
 pub mod fields;
 pub mod header;
 pub mod http;

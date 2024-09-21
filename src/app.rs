@@ -11,6 +11,7 @@ pub mod arg;
 
 mod common;
 mod export;
+mod extract;
 mod format;
 mod import;
 mod io;
@@ -48,6 +49,9 @@ fn run_impl() -> anyhow::Result<()> {
         }
         Command::List(args) => {
             self::list::list(&args)?;
+        }
+        Command::Extract(args) => {
+            self::extract::extract(&args)?;
         }
     }
 

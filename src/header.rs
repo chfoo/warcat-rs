@@ -4,9 +4,13 @@ use std::io::Write;
 use chrono::Utc;
 
 use crate::{
-    error::{ParseError, ParseErrorKind},
+    error::{ParseError, ProtocolError, ProtocolErrorKind},
     fields::FieldMap,
 };
+
+pub mod fields;
+
+pub type WarcFields = FieldMap<String, String>;
 
 /// Data structure for representing a WARC header.
 #[derive(Debug, Clone)]
@@ -14,7 +18,7 @@ pub struct WarcHeader {
     /// The version string such as "WARC/1.1".
     pub version: String,
     /// The name-value fields of the header.
-    pub fields: FieldMap<String, String>,
+    pub fields: WarcFields,
 }
 
 impl WarcHeader {
@@ -75,13 +79,13 @@ impl WarcHeader {
     }
 
     /// Returns the value of `Content-Length` as an integer.
-    pub fn content_length(&self) -> Result<u64, ParseError> {
+    pub fn content_length(&self) -> Result<u64, ProtocolError> {
         if let Some(value) = self.fields.get_u64_strict("Content-Length") {
             Ok(value.map_err(|e| {
-                ParseError::new(ParseErrorKind::InvalidContentLength).with_source(e)
+                ProtocolError::new(ProtocolErrorKind::InvalidContentLength).with_source(e)
             })?)
         } else {
-            Err(ParseError::new(ParseErrorKind::InvalidContentLength))
+            Err(ProtocolError::new(ProtocolErrorKind::InvalidContentLength))
         }
     }
 

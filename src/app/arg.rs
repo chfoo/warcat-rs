@@ -28,6 +28,7 @@ pub enum Command {
     Export(ExportCommand),
     Import(ImportCommand),
     List(ListCommand),
+    Extract(ExtractCommand),
 }
 
 #[derive(Parser, Debug)]
@@ -78,10 +79,23 @@ pub struct ListCommand {
     pub format: ListSerializationFormat,
 
     #[clap(
-        long, value_delimiter = ',',
+        long,
+        value_delimiter = ',',
         default_value = ":position,WARC-Record-ID,WARC-Type,Content-Type,WARC-Target-URI"
     )]
     pub field: Vec<String>,
+}
+
+#[derive(Parser, Debug)]
+pub struct ExtractCommand {
+    #[clap(long, default_value = "-")]
+    pub input: PathBuf,
+
+    #[clap(long, default_value = "auto")]
+    pub compression: CompressionFormat,
+
+    #[clap(long, default_value = "./")]
+    pub output: PathBuf,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
