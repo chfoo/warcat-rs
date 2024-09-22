@@ -25,6 +25,7 @@ pub struct Header {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BlockChunk {
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
 }
 
