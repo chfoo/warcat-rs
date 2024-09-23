@@ -34,6 +34,7 @@ pub fn start_line(input: &[u8]) -> IResult<&[u8], StartLine<'_>> {
 pub fn request_line(input: &[u8]) -> IResult<&[u8], RequestLine<'_>> {
     let parts = tuple((method, tag(b" "), request_target, tag(b" "), http_version));
 
+    #[allow(clippy::type_complexity)]
     map(parts, |output: (&[u8], &[u8], &[u8], &[u8], &[u8])| {
         RequestLine {
             method: output.0,
@@ -52,6 +53,7 @@ pub fn status_line(input: &[u8]) -> IResult<&[u8], StatusLine<'_>> {
         reason_phrase,
     ));
 
+    #[allow(clippy::type_complexity)]
     map(parts, |output: (&[u8], &[u8], &[u8], &[u8], &[u8])| {
         StatusLine {
             http_version: output.0,

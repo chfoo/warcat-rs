@@ -39,6 +39,9 @@ url = "2.5.2"
 uuid = { version = "1.10.0", features = ["v7"] }
 zstd = { version = "0.13.2", optional = true }
 
+[dev-dependencies]
+tracing-test = "0.2.5"
+
 [features]
 # "full" enabled temporarily during development.
 default = ["full"]

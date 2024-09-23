@@ -16,11 +16,13 @@ use crate::{
 enum State {
     None,
     HttpResponse,
+    Resource,
 }
 
 #[derive(Debug)]
 enum Decoder {
     None,
+    Identity,
     Http(HttpDecoder),
 }
 
@@ -42,7 +44,7 @@ impl WarcExtractor {
     }
 
     pub fn read_header(&mut self, header: &WarcHeader) -> Result<(), ParseError> {
-        let is_response = header.fields.get_or_default("WARC-Type") == "response";
+        let warc_type = header.fields.get_or_default("WARC-Type");
         let media_type = header.fields.get_media_type("Content-Type")?;
         let mut is_http_response = false;
 
@@ -61,10 +63,13 @@ impl WarcExtractor {
             .get_bad_spec_url("WARC-Target-URI")
             .unwrap_or_default();
 
-        if is_response && is_http_response && !url.is_empty() {
+        if warc_type == "response" && is_http_response && !url.is_empty() {
             self.state = State::HttpResponse;
             self.decoder = Decoder::Http(HttpDecoder::new());
             self.output_path = url_to_path_components(url);
+        } else if warc_type == "resource" && !url.is_empty() {
+            self.state = State::Resource;
+            self.decoder = Decoder::Identity;
         } else {
             self.state = State::None;
         }
@@ -83,21 +88,27 @@ impl WarcExtractor {
     pub fn extract_data<W: Write>(
         &mut self,
         block_data: &[u8],
-        output: W,
-    ) -> Result<usize, GeneralError> {
+        mut output: W,
+    ) -> Result<(), GeneralError> {
         match &mut self.decoder {
-            Decoder::None => Ok(0),
+            Decoder::None => Ok(()),
+            Decoder::Identity => Ok(output.write_all(block_data)?),
             Decoder::Http(decoder) => {
                 decoder.recv_data(block_data);
 
                 loop {
                     match decoder.get_event()? {
                         ReceiverEvent::WantData => break,
-                        ReceiverEvent::Header(_message_header) => {}
+                        ReceiverEvent::Header(_header) => {}
+                        ReceiverEvent::Body(data) => {
+                            output.write_all(data)?;
+                        }
+                        ReceiverEvent::Trailer(_trailer) => {}
+                        ReceiverEvent::End => break,
                     }
                 }
-                Ok(0)
-                // todo!()
+
+                Ok(())
             }
         }
     }

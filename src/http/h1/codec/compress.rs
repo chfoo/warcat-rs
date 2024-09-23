@@ -10,12 +10,14 @@ use super::Codec;
 
 #[derive(Debug)]
 pub struct CompressionEncoder {
-    compressor: Compressor<Vec<u8>>,
+    compressor: Option<Compressor<Vec<u8>>>,
 }
 
 impl CompressionEncoder {
     pub fn new(compressor: Compressor<Vec<u8>>) -> Self {
-        Self { compressor }
+        Self {
+            compressor: Some(compressor),
+        }
     }
 
     pub fn try_of_name(name: &str) -> Result<Self, ProtocolError> {
@@ -26,12 +28,26 @@ impl CompressionEncoder {
     }
 }
 
-impl<W: Write> Codec<W> for CompressionEncoder {
-    fn transform(&mut self, input: &[u8], mut output: W) -> Result<(), GeneralError> {
-        self.compressor.write_all(input)?;
+impl Codec for CompressionEncoder {
+    fn transform(&mut self, input: &[u8], output: &mut Vec<u8>) -> Result<(), GeneralError> {
+        if let Some(compressor) = &mut self.compressor {
+            compressor.write_all(input)?;
 
-        output.write_all(self.compressor.get_ref())?;
-        self.compressor.get_mut().clear();
+            output.extend_from_slice(compressor.get_ref());
+            compressor.get_mut().clear();
+        }
+
+        Ok(())
+    }
+
+    fn finish_input(&mut self, output: &mut Vec<u8>) -> Result<(), GeneralError> {
+        if let Some(mut compressor) = self.compressor.take() {
+            compressor.flush()?;
+
+            let buf = compressor.finish()?;
+
+            output.extend_from_slice(&buf);
+        }
 
         Ok(())
     }
@@ -55,13 +71,35 @@ impl CompressionDecoder {
     }
 }
 
-impl<W: Write> Codec<W> for CompressionDecoder {
-    fn transform(&mut self, input: &[u8], mut output: W) -> Result<(), GeneralError> {
+impl Codec for CompressionDecoder {
+    fn transform(&mut self, input: &[u8], output: &mut Vec<u8>) -> Result<(), GeneralError> {
         self.decompressor.write_all(input)?;
+        self.decompressor.flush()?;
 
-        output.write_all(self.decompressor.get_ref())?;
+        output.extend_from_slice(self.decompressor.get_ref());
         self.decompressor.get_mut().clear();
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compression() {
+        let mut encoder = CompressionEncoder::try_of_name("gzip").unwrap();
+        let mut buf = Vec::new();
+
+        encoder.transform(b"Hello world!", &mut buf).unwrap();
+        encoder.finish_input(&mut buf).unwrap();
+
+        let mut output = Vec::new();
+
+        let mut decoder = CompressionDecoder::try_of_name("gzip").unwrap();
+        decoder.transform(&buf, &mut output).unwrap();
+
+        assert_eq!(&output, b"Hello world!");
     }
 }

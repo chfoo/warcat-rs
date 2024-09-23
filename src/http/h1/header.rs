@@ -90,7 +90,10 @@ impl From<&str> for Hstring {
 
 impl From<Vec<u8>> for Hstring {
     fn from(v: Vec<u8>) -> Self {
-        Self::Opaque(v)
+        match String::from_utf8(v) {
+            Ok(v) => Self::Text(v),
+            Err(e) => Self::Opaque(e.into_bytes()),
+        }
     }
 }
 
@@ -104,6 +107,7 @@ impl From<&[u8]> for Hstring {
 }
 
 pub type HeaderFields = FieldMap<String, Hstring>;
+pub type TrailerFields = FieldMap<String, Hstring>;
 
 impl HeaderFields {
     pub fn serialize<W: Write>(&self, mut buf: W) -> std::io::Result<()> {
@@ -115,6 +119,21 @@ impl HeaderFields {
         }
 
         buf.write_all(b"\r\n")?;
+
+        Ok(())
+    }
+
+    pub fn parse(&mut self, input: &[u8]) -> Result<(), ParseError> {
+        let (_remain, pairs) = crate::parse::fields::field_pairs(input)?;
+
+        for pair in pairs {
+            let name = String::from_utf8(pair.name.to_vec())?;
+            let value = crate::parse::remove_line_folding(pair.value)
+                .into_owned()
+                .into();
+
+            self.insert(name, value);
+        }
 
         Ok(())
     }
@@ -200,6 +219,28 @@ impl MessageHeader {
         }
     }
 
+    pub fn new_request<S1: Into<String>, S2: Into<String>>(method: S1, target: S2) -> Self {
+        Self {
+            start_line: StartLine::Request(RequestLine {
+                method: method.into(),
+                request_target: target.into(),
+                http_version: "HTTP/1.1".to_string(),
+            }),
+            fields: HeaderFields::new(),
+        }
+    }
+
+    pub fn new_response<S2: Into<String>>(status_code: u16, reason_phrase: S2) -> Self {
+        Self {
+            start_line: StartLine::Status(StatusLine {
+                http_version: "HTTP/1.1".to_string(),
+                status_code,
+                reason_phrase: reason_phrase.into().into(),
+            }),
+            fields: HeaderFields::new(),
+        }
+    }
+
     pub fn parse(input: &[u8]) -> Result<Self, ParseError> {
         let mut header = Self::empty();
 
@@ -226,16 +267,7 @@ impl MessageHeader {
             }
         }
 
-        let (_remain, pairs) = crate::parse::fields::field_pairs(remain)?;
-
-        for pair in pairs {
-            let name = String::from_utf8(pair.name.to_vec())?;
-            let value = crate::parse::remove_line_folding(pair.value)
-                .into_owned()
-                .into();
-
-            header.fields.insert(name, value);
-        }
+        header.fields.parse(remain)?;
 
         Ok(header)
     }
@@ -287,6 +319,7 @@ mod tests {
         assert_eq!(request_line.request_target, "/index.html");
         assert_eq!(request_line.http_version, "HTTP/1.1");
         assert_eq!(header.fields.len(), 2);
+        assert_eq!(header.fields.get("Host"), Some(&"example.com".into()));
 
         let mut buf = Vec::new();
         header.serialize(&mut buf).unwrap();
@@ -296,7 +329,7 @@ mod tests {
     #[test]
     fn test_header_parse_response() {
         let data = "HTTP/1.1 200 OK\r\n\
-            Server: example\r\n\
+            Server: example.com\r\n\
             Content-Length: 123\r\n\
             \r\n";
 
@@ -308,6 +341,7 @@ mod tests {
         assert_eq!(status_line.status_code, 200);
         assert_eq!(status_line.reason_phrase.as_text(), Some("OK"));
         assert_eq!(header.fields.len(), 2);
+        assert_eq!(header.fields.get("Server"), Some(&"example.com".into()));
 
         let mut buf = Vec::new();
         header.serialize(&mut buf).unwrap();
