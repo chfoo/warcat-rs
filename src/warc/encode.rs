@@ -151,6 +151,7 @@ impl ContentLengthMismatch {
 mod tests {
     use super::*;
 
+    #[tracing_test::traced_test]
     #[test]
     fn test_writer() {
         let buf = Vec::new();

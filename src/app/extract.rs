@@ -78,7 +78,7 @@ impl Extractor {
             self.file = Some(
                 tempfile::Builder::new()
                     .prefix("extract-")
-                    .suffix("incomplete.tmp")
+                    .suffix(".incomplete.tmp")
                     .tempfile_in(&self.output_dir)?,
             );
         }

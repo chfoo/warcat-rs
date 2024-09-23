@@ -13,7 +13,7 @@ pub struct Args {
     #[clap(long, short)]
     pub quiet: bool,
 
-    #[clap(long, default_value = "warn")]
+    #[clap(long, default_value = "off")]
     pub log_level: super::logging::Level,
 
     #[clap(long)]

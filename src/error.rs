@@ -277,16 +277,25 @@ impl ProtocolError {
     }
 }
 
+impl From<ProtocolErrorKind> for ProtocolError {
+    fn from(value: ProtocolErrorKind) -> Self {
+        Self::new(value)
+    }
+}
+
 #[derive(Debug)]
 pub enum ProtocolErrorKind {
     HeaderTooBig,
-    NoContentLength,
+    MissingContentLength,
     ContentLengthMismatch,
     InvalidContentLength,
     InvalidRecordBoundary,
+    InvalidMessageBoundary,
+    UnsupportedTransferEncoding,
+    UnsupportedContentEncoding,
     UnsupportedCompressionFormat,
     InvalidChunkedEncoding,
-    LastChunk,
+    AmbiguousSpecification,
     Other,
 }
 
@@ -294,13 +303,16 @@ impl Display for ProtocolErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::HeaderTooBig => write!(f, "header too big"),
-            Self::NoContentLength => write!(f, "no content length"),
+            Self::MissingContentLength => write!(f, "missing content length"),
             Self::ContentLengthMismatch => write!(f, "content length mismatch"),
             Self::InvalidContentLength => write!(f, "invalid content length"),
             Self::InvalidRecordBoundary => write!(f, "invalid record boundary"),
+            Self::InvalidMessageBoundary => write!(f, "invalid message boundary"),
+            Self::UnsupportedTransferEncoding => write!(f, "unsupported transfer encoding"),
+            Self::UnsupportedContentEncoding => write!(f, "unsupported content encoding"),
             Self::UnsupportedCompressionFormat => write!(f, "unsupported compression format"),
             Self::InvalidChunkedEncoding => write!(f, "invalid chunked encoding"),
-            Self::LastChunk => write!(f, "last chunk"),
+            Self::AmbiguousSpecification => write!(f, "ambiguous specification"),
             Self::Other => write!(f, "other"),
         }
     }

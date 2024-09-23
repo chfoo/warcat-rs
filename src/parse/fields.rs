@@ -104,7 +104,9 @@ fn subtype(input: &[u8]) -> IResult<&[u8], &[u8]> {
     token(input)
 }
 
-fn parameters(input: &[u8]) -> IResult<&[u8], Vec<(&[u8], &[u8])>> {
+type ParametersList<'a> = Vec<(&'a [u8], &'a [u8])>;
+
+fn parameters(input: &[u8]) -> IResult<&[u8], ParametersList> {
     many0(preceded(delimited(space0, tag(";"), space0), parameter))(input)
 }
 
