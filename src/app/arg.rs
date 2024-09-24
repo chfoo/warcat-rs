@@ -4,21 +4,29 @@ use clap::{Parser, Subcommand};
 
 use super::format::filename_compression_format;
 
+/// WARC archive tool
 #[derive(Parser, Debug)]
 #[command(version)]
 pub struct Args {
+    /// Specifies the operation to perform.
     #[command(subcommand)]
     pub command: Command,
 
+    /// Disable any progress messages.
+    ///
+    /// Does not affect logging.
     #[clap(long, short)]
     pub quiet: bool,
 
+    /// Filter log messages by level.
     #[clap(long, default_value = "off")]
     pub log_level: super::logging::Level,
 
+    /// Write log messages to the given file instead of standard error.
     #[clap(long)]
     pub log_file: Option<PathBuf>,
 
+    /// Write log messages as JSON sequences instead of a console logging format.
     #[clap(long)]
     pub log_json: bool,
 }
@@ -31,53 +39,75 @@ pub enum Command {
     Extract(ExtractCommand),
 }
 
+/// Decodes a WARC file to messages in a easier-to-process format such as JSON.
 #[derive(Parser, Debug)]
 pub struct ExportCommand {
+    /// Path to a WARC file.
     #[clap(long, default_value = "-")]
-    pub input: PathBuf,
+    pub input: Vec<PathBuf>,
 
+    /// Specify the compression format of the input WARC file.
     #[clap(long, default_value = "auto")]
     pub compression: CompressionFormat,
 
+    /// Path for the output messages.
     #[clap(long, default_value = "-")]
     pub output: PathBuf,
 
+    /// Format for the output messages.
     #[clap(long, default_value = "json-seq")]
     pub format: SerializationFormat,
 }
 
+/// Encodes a WARC file from messages in a format of the `export` subcommand.
 #[derive(Parser, Debug)]
 pub struct ImportCommand {
+    /// Path to the input messages.
     #[clap(long, default_value = "-")]
-    pub input: PathBuf,
+    pub input: Vec<PathBuf>,
 
+    /// Format for the input messages.
     #[clap(long, default_value = "json-seq")]
     pub format: SerializationFormat,
 
+    /// Path of the output WARC file.
     #[clap(long, default_value = "-")]
     pub output: PathBuf,
 
+    /// Compression format of the output WARC file.
     #[clap(long, default_value = "auto")]
     pub compression: CompressionFormat,
 
+    /// Level of compression for the output.
     #[clap(long, default_value = "high")]
     pub compression_level: CompressionLevel,
 }
 
+/// Provides a listing of the WARC records.
 #[derive(Parser, Debug)]
 pub struct ListCommand {
+    /// Path of the WARC file.
     #[clap(long, default_value = "-")]
-    pub input: PathBuf,
+    pub input: Vec<PathBuf>,
 
+    /// Compression format of the input WARC file.
     #[clap(long, default_value = "auto")]
     pub compression: CompressionFormat,
 
+    /// Path to output listings.
     #[clap(long, default_value = "-")]
     pub output: PathBuf,
 
+    /// Format of the output.
     #[clap(long, default_value = "json-seq")]
     pub format: ListSerializationFormat,
 
+    /// Fields to include in the listing.
+    ///
+    /// The option accepts names of fields that occur in a WARC header.
+    ///
+    /// The pseudo-name `:position` represents the position in the file.
+    /// `:file` represents the path of the file.
     #[clap(
         long,
         value_delimiter = ',',
@@ -86,23 +116,37 @@ pub struct ListCommand {
     pub field: Vec<String>,
 }
 
+/// Extracts resources for casual viewing of the WARC contents.
+///
+/// Files are extracted to a directory structure similar to the archived
+/// URL.
+///
+/// This operation does not automatically permit offline viewing of archived
+/// websites; no content conversion or link-rewriting is performed.
 #[derive(Parser, Debug)]
 pub struct ExtractCommand {
+    /// Path to the WARC file.
     #[clap(long, default_value = "-")]
-    pub input: PathBuf,
+    pub input: Vec<PathBuf>,
 
+    /// Compression format of the input WARC file.
     #[clap(long, default_value = "auto")]
     pub compression: CompressionFormat,
 
+    /// Path to the output directory.
     #[clap(long, default_value = "./")]
     pub output: PathBuf,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum CompressionFormat {
+    /// Automatically detect the format by the filename extension.
     Auto,
+    /// No compression.
     None,
+    /// Gzip format.
     Gzip,
+    /// Zstandard format.
     #[cfg(feature = "zstd")]
     Zstandard,
 }
@@ -136,8 +180,18 @@ impl TryFrom<CompressionFormat> for crate::compress::Format {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum CompressionLevel {
+    /// A balance between compression ratio and resource consumption.
     Balanced,
+    /// Use a high level of resources to achieve a better compression ratio.
+    ///
+    /// THis is slower and may use more memory.
+    ///
+    /// For older algorithms, this is usually the highest configuration
+    /// possible.
+    /// For modern algorithms, this uses a high, but reasonably
+    /// practical configuration.
     High,
+    /// Fast and low resource usage, but lower compression ratio.
     Low,
 }
 
@@ -153,7 +207,14 @@ impl From<CompressionLevel> for crate::compress::Level {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum SerializationFormat {
+    /// JSON sequences (RFC 7464)
+    ///
+    /// Each message is a JSON object delimitated by a Record Separator (U+001E)
+    /// and a Line Feed (U+000A).
     JsonSeq,
+    /// CBOR sequences (RFC 8742).
+    ///
+    /// Messages are a series of consecutive CBOR data items.
     CborSeq,
 }
 

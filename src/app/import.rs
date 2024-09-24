@@ -7,7 +7,7 @@ use crate::{
     dataseq::{SeqFormat, SeqReader},
     header::WarcHeader,
     io::{BufferReader, LogicalPosition},
-    warc::{Encoder, EncoderConfig, EncStateBlock, EncStateHeader},
+    warc::{EncStateBlock, EncStateHeader, Encoder, EncoderConfig},
 };
 
 use super::{
@@ -17,27 +17,26 @@ use super::{
 };
 
 pub fn import(args: &ImportCommand) -> anyhow::Result<()> {
-    let input_path = &args.input;
     let output_path = &args.output;
-
-    let span = tracing::info_span!("import", path = ?output_path);
-    let _span_guard = span.enter();
-
-    let input = super::common::open_input(input_path)?;
-    let output = super::common::open_output(output_path)?;
-
-    tracing::info!("opened file");
-
     let seq_format = args.format.into();
-
     let format = args.compression.try_into_native(output_path)?;
     let level = args.compression_level.into();
 
-    let file_len = std::fs::metadata(input_path).map(|m| m.len()).ok();
+    for input_path in &args.input {
+        let span = tracing::info_span!("import", path = ?input_path);
+        let _span_guard = span.enter();
 
-    Importer::new(input, output, seq_format, (format, level), file_len)?.run()?;
+        let input = super::common::open_input(input_path)?;
+        let output = super::common::open_output(output_path)?;
 
-    tracing::info!("opened file");
+        tracing::info!("opened file");
+
+        let file_len = std::fs::metadata(input_path).map(|m| m.len()).ok();
+
+        Importer::new(input, output, seq_format, (format, level), file_len)?.run()?;
+
+        tracing::info!("closed file");
+    }
 
     Ok(())
 }

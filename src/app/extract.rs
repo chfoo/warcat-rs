@@ -8,47 +8,48 @@ use tempfile::NamedTempFile;
 use crate::{
     app::common::{ReaderEvent, ReaderPipeline},
     error::GeneralError,
-    extract::WarcExtractor,
+    extract::{WarcExtractor, FILENAME_CONFLICT_MARKER},
     header::WarcHeader,
 };
 
 use super::arg::ExtractCommand;
 
 pub fn extract(args: &ExtractCommand) -> anyhow::Result<()> {
-    let input_path = &args.input;
     let output_dir = &args.output;
 
-    let span = tracing::info_span!("extract", path = ?input_path);
-    let _span_guard = span.enter();
+    for input_path in &args.input {
+        let span = tracing::info_span!("extract", path = ?input_path);
+        let _span_guard = span.enter();
 
-    let input = super::common::open_input(input_path)?;
+        let input = super::common::open_input(input_path)?;
 
-    if !output_dir.is_dir() {
-        anyhow::bail!("not a directory: {:?}", output_dir)
+        if !output_dir.is_dir() {
+            anyhow::bail!("not a directory: {:?}", output_dir)
+        }
+
+        tracing::info!("opened file");
+
+        let compression_format = args.compression.try_into_native(input_path)?;
+        let file_len = std::fs::metadata(input_path).map(|m| m.len()).ok();
+
+        let mut extractor = Extractor::new(output_dir);
+
+        ReaderPipeline::new(
+            |event| match event {
+                ReaderEvent::Header {
+                    header,
+                    record_boundary_position: _,
+                } => extractor.process_header(&header),
+                ReaderEvent::Block { data } => extractor.process_data(data),
+            },
+            input,
+            compression_format,
+            file_len,
+        )?
+        .run()?;
+
+        tracing::info!("closed file");
     }
-
-    tracing::info!("opened file");
-
-    let compression_format = args.compression.try_into_native(input_path)?;
-    let file_len = std::fs::metadata(input_path).map(|m| m.len()).ok();
-
-    let mut extractor = Extractor::new(output_dir);
-
-    ReaderPipeline::new(
-        |event| match event {
-            ReaderEvent::Header {
-                header,
-                record_boundary_position: _,
-            } => extractor.process_header(&header),
-            ReaderEvent::Block { data } => extractor.process_data(data),
-        },
-        input,
-        compression_format,
-        file_len,
-    )?
-    .run()?;
-
-    tracing::info!("closed file");
 
     Ok(())
 }
@@ -141,15 +142,18 @@ impl Extractor {
                 if target_path.exists() {
                     // File or directory already exists, append a unique ID to the name.
                     target_path.pop();
-                    target_path.push(format!("{} {:016x}", component, conflict_id));
+                    target_path.push(format!(
+                        "{}{}{:016x}",
+                        component, FILENAME_CONFLICT_MARKER, conflict_id
+                    ));
                 }
             } else {
                 target_path.push(component);
 
                 if target_path.is_file() {
-                    // File exists in place of directory component, append ".d" to the name
+                    // File exists in place of directory component, append ".d"-style to the name
                     target_path.pop();
-                    target_path.push(format!("{}.d", component));
+                    target_path.push(format!("{}{}d", component, FILENAME_CONFLICT_MARKER));
                 }
             }
         }

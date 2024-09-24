@@ -12,11 +12,14 @@ use crate::{
     header::{fields::FieldsExt, WarcHeader},
 };
 
+pub const FILENAME_CONFLICT_MARKER: char = '⬧';
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum State {
     None,
     HttpResponse,
     Resource,
+    Conversion,
 }
 
 #[derive(Debug)]
@@ -70,6 +73,15 @@ impl WarcExtractor {
         } else if warc_type == "resource" && !url.is_empty() {
             self.state = State::Resource;
             self.decoder = Decoder::Identity;
+            self.output_path = url_to_path_components(url);
+        } else if warc_type == "conversion" && !url.is_empty() {
+            self.state = State::Conversion;
+            self.decoder = Decoder::Identity;
+            self.output_path = url_to_path_components(url);
+            if let Some(last) = self.output_path.last_mut() {
+                last.push(FILENAME_CONFLICT_MARKER);
+                last.push_str("conversion");
+            }
         } else {
             self.state = State::None;
         }

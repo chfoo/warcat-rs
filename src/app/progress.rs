@@ -19,7 +19,7 @@ pub fn disable_global_progress_bar() {
 pub fn make_bytes_progress_bar(len: Option<u64>) -> ProgressBar {
     if let Some(len) = len {
         let style = ProgressStyle::with_template(
-            "[{bar:30.cyan/cyan.dim}] {percent}% {binary_bytes} / {binary_total_bytes} {msg}",
+            "[{bar:30.cyan/cyan.dim}] {percent:.green}% {binary_bytes:.dim} / {binary_total_bytes:.dim} {msg}",
         )
         .unwrap();
         let style = style.progress_chars("=>.");
