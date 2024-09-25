@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Warcat'
-copyright = '2024, Christopher Foo'
-author = 'Christopher Foo'
+copyright = '2024, Warcat contributors'
+author = 'Warcat contributors'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -16,7 +16,7 @@ author = 'Christopher Foo'
 extensions = ['myst_parser']
 
 templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'README.md']
 
 
 
