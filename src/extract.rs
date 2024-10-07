@@ -14,7 +14,7 @@ use crate::{
 
 pub const FILENAME_CONFLICT_MARKER: char = '⬧';
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum State {
     None,
     HttpResponse,

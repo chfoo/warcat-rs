@@ -8,12 +8,16 @@ use std::{
 };
 
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum GeneralError {
     #[error(transparent)]
     Parse(#[from] ParseError),
 
     #[error(transparent)]
     Protocol(#[from] ProtocolError),
+
+    #[error(transparent)]
+    Storage(#[from] StorageError),
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -54,6 +58,26 @@ impl GeneralError {
 
     pub fn try_into_protocol(self) -> Result<ProtocolError, Self> {
         if let Self::Protocol(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
+
+    pub fn is_storage(&self) -> bool {
+        matches!(self, Self::Storage(..))
+    }
+
+    pub fn as_storage(&self) -> Option<&StorageError> {
+        if let Self::Storage(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn try_into_storage(self) -> Result<StorageError, Self> {
+        if let Self::Storage(v) = self {
             Ok(v)
         } else {
             Err(self)
@@ -284,6 +308,7 @@ impl From<ProtocolErrorKind> for ProtocolError {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum ProtocolErrorKind {
     HeaderTooBig,
     MissingContentLength,
@@ -295,25 +320,111 @@ pub enum ProtocolErrorKind {
     UnsupportedContentEncoding,
     UnsupportedCompressionFormat,
     InvalidChunkedEncoding,
+    UnsupportedDigest,
+    InvalidBaseEncodedValue,
     AmbiguousSpecification,
     Other,
 }
 
 impl Display for ProtocolErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::HeaderTooBig => write!(f, "header too big"),
-            Self::MissingContentLength => write!(f, "missing content length"),
-            Self::ContentLengthMismatch => write!(f, "content length mismatch"),
-            Self::InvalidContentLength => write!(f, "invalid content length"),
-            Self::InvalidRecordBoundary => write!(f, "invalid record boundary"),
-            Self::InvalidMessageBoundary => write!(f, "invalid message boundary"),
-            Self::UnsupportedTransferEncoding => write!(f, "unsupported transfer encoding"),
-            Self::UnsupportedContentEncoding => write!(f, "unsupported content encoding"),
-            Self::UnsupportedCompressionFormat => write!(f, "unsupported compression format"),
-            Self::InvalidChunkedEncoding => write!(f, "invalid chunked encoding"),
-            Self::AmbiguousSpecification => write!(f, "ambiguous specification"),
-            Self::Other => write!(f, "other"),
+        let value = match self {
+            Self::HeaderTooBig => "header too big",
+            Self::MissingContentLength => "missing content length",
+            Self::ContentLengthMismatch => "content length mismatch",
+            Self::InvalidContentLength => "invalid content length",
+            Self::InvalidRecordBoundary => "invalid record boundary",
+            Self::InvalidMessageBoundary => "invalid message boundary",
+            Self::UnsupportedTransferEncoding => "unsupported transfer encoding",
+            Self::UnsupportedContentEncoding => "unsupported content encoding",
+            Self::UnsupportedCompressionFormat => "unsupported compression format",
+            Self::InvalidChunkedEncoding => "invalid chunked encoding",
+            Self::UnsupportedDigest => "unsupported digest",
+            Self::InvalidBaseEncodedValue => "invalid base encoded value",
+            Self::AmbiguousSpecification => "ambiguous specification",
+            Self::Other => "other",
+        };
+
+        f.write_str(value)
+    }
+}
+
+/// Error for internal storage error such as databases.
+#[derive(Debug, thiserror::Error)]
+pub struct StorageError {
+    context: String,
+    backtrace: Option<Box<Backtrace>>,
+    source: Option<Box<dyn std::error::Error + Send + Sync>>,
+}
+
+impl StorageError {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        Self {
+            context: String::new(),
+            backtrace: None,
+            source: None,
         }
+    }
+
+    pub fn with_context<S: AsRef<str>>(mut self, value: S) -> Self {
+        self.context = value.as_ref().to_string();
+        self
+    }
+
+    pub fn with_backtrace(mut self, backtrace: Backtrace) -> Self {
+        self.backtrace = Some(Box::new(backtrace));
+        self
+    }
+
+    pub fn with_source<T: Into<Box<dyn std::error::Error + Send + Sync>>>(
+        mut self,
+        source: T,
+    ) -> Self {
+        self.source = Some(source.into());
+        self
+    }
+}
+
+impl Display for StorageError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("storage error")?;
+
+        if !self.context.is_empty() {
+            f.write_str(": ")?;
+            f.write_str(&self.context)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl From<redb::DatabaseError> for StorageError {
+    fn from(value: redb::DatabaseError) -> Self {
+        Self::new().with_source(value)
+    }
+}
+
+impl From<redb::TransactionError> for StorageError {
+    fn from(value: redb::TransactionError) -> Self {
+        Self::new().with_source(value)
+    }
+}
+
+impl From<redb::StorageError> for StorageError {
+    fn from(value: redb::StorageError) -> Self {
+        Self::new().with_source(value)
+    }
+}
+
+impl From<redb::TableError> for StorageError {
+    fn from(value: redb::TableError) -> Self {
+        Self::new().with_source(value)
+    }
+}
+
+impl From<redb::CommitError> for StorageError {
+    fn from(value: redb::CommitError) -> Self {
+        Self::new().with_source(value)
     }
 }

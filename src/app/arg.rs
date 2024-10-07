@@ -37,6 +37,8 @@ pub enum Command {
     Import(ImportCommand),
     List(ListCommand),
     Extract(ExtractCommand),
+    Verify(VerifyCommand),
+    Self_(SelfCommand),
 }
 
 /// Decodes a WARC file to messages in a easier-to-process format such as JSON.
@@ -136,6 +138,26 @@ pub struct ExtractCommand {
     /// Path to the output directory.
     #[clap(long, default_value = "./")]
     pub output: PathBuf,
+}
+
+/// Perform specification and integrity checks on WARC files.
+#[derive(Parser, Debug)]
+pub struct VerifyCommand {
+    /// Path to the WARC file.
+    #[clap(long, default_value = "-")]
+    pub input: Vec<PathBuf>,
+
+    /// Compression format of the input WARC file.
+    #[clap(long, default_value = "auto")]
+    pub compression: CompressionFormat,
+
+    /// Path to output problems.
+    #[clap(long, default_value = "-")]
+    pub output: PathBuf,
+
+    /// Format of the output.
+    #[clap(long, default_value = "json-seq")]
+    pub format: ListSerializationFormat,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -242,4 +264,28 @@ impl From<ListSerializationFormat> for crate::dataseq::SeqFormat {
             ListSerializationFormat::Csv => Self::Csv,
         }
     }
+}
+
+/// Self-installer and uninstaller.
+#[derive(Debug, Parser)]
+pub struct SelfCommand {
+    #[command(subcommand)]
+    pub command: SelfSubcommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SelfSubcommand {
+    /// Launch the interactive self-installer.
+    Install {
+        /// Install automatically without user interaction.
+        #[arg(long)]
+        quiet: bool,
+    },
+
+    /// Launch the interactive uninstaller.
+    Uninstall {
+        /// Uninstall automatically without user interaction.
+        #[arg(long)]
+        quiet: bool,
+    },
 }

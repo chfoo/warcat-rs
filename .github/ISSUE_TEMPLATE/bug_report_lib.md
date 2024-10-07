@@ -30,7 +30,7 @@ assignees:
 
  - OS: [e.g. Windows 11, macOS 15, Ubuntu 24.04]
  - Rust Version: [e.g. 1.80. Check with `rustc --version`]
- - Crate Version: [e.g. 1.0.0. Check with `cargo tree --package warcat --depth`]
+ - Crate Version: [e.g. 1.0.0. Check with `cargo tree --package warcat --depth 0`]
 
 **Additional context**
 

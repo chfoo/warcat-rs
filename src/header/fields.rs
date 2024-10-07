@@ -9,6 +9,8 @@ pub trait FieldsExt {
 
     fn get_media_type<N: AsRef<str>>(&self, name: N) -> Result<Option<MediaType>, ParseError>;
 
+    fn is_formatted_bad_spec_url<N: AsRef<str>>(&self, name: N) -> bool;
+
     fn get_bad_spec_url<N: AsRef<str>>(&self, name: N) -> Option<&str>;
 }
 
@@ -50,6 +52,14 @@ impl FieldsExt for WarcFields {
             }))
         } else {
             Ok(None)
+        }
+    }
+
+    fn is_formatted_bad_spec_url<N: AsRef<str>>(&self, name: N) -> bool {
+        if let Some(value) = self.get(name.as_ref()) {
+            value.starts_with("<") && value.ends_with(">")
+        } else {
+            false
         }
     }
 

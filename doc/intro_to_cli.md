@@ -10,7 +10,7 @@ On Linux, open Applications. Select System, then Terminal. Or, search for "termi
 
 The terminal application will then present a command line interface (CLI). On Windows, this is [PowerShell](https://learn.microsoft.com/en-us/powershell/). On macOS or Linux, this is typically [Bash shell](https://www.gnu.org/software/bash/manual/bash.html).
 
-If you have the application is under the PATH environment variable, to run it, type:
+If you have the application is under the search path (PATH environment variable), to run it, type:
 
 ```sh
 warcat

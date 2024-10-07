@@ -19,10 +19,12 @@ mod list;
 mod logging;
 mod model;
 mod progress;
+mod self_;
+mod verify;
 
 pub fn run() -> ExitCode {
     match run_impl() {
-        Ok(_) => ExitCode::SUCCESS,
+        Ok(exit_code) => exit_code,
         Err(error) => {
             tracing::error!(?error);
             eprintln!("{:#}", error);
@@ -31,7 +33,12 @@ pub fn run() -> ExitCode {
     }
 }
 
-fn run_impl() -> anyhow::Result<()> {
+fn run_impl() -> anyhow::Result<ExitCode> {
+    if self::self_::is_installer() {
+        self::self_::install_interactive()?;
+        return Ok(ExitCode::SUCCESS);
+    }
+
     let args = Args::parse();
 
     if args.quiet {
@@ -40,22 +47,31 @@ fn run_impl() -> anyhow::Result<()> {
 
     self::logging::set_up_logging(args.log_level, args.log_file.as_deref(), args.log_json)?;
 
-    match args.command {
+    let exit_code = match args.command {
         Command::Export(args) => {
             self::export::export(&args)?;
+            ExitCode::SUCCESS
         }
         Command::Import(args) => {
             self::import::import(&args)?;
+            ExitCode::SUCCESS
         }
         Command::List(args) => {
             self::list::list(&args)?;
+            ExitCode::SUCCESS
         }
         Command::Extract(args) => {
             self::extract::extract(&args)?;
+            ExitCode::SUCCESS
         }
-    }
+        Command::Verify(args) => self::verify::verify(&args)?,
+        Command::Self_(args) => {
+            self::self_::self_(&args)?;
+            ExitCode::SUCCESS
+        }
+    };
 
     self::progress::global_progress_bar().println("Done.")?;
 
-    Ok(())
+    Ok(exit_code)
 }

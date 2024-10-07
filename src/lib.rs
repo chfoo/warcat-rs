@@ -12,8 +12,11 @@
 //!
 //! The main entrypoints to this library is [`warc::Decoder`] and [`warc::Encoder`].
 
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 pub mod compress;
 pub mod dataseq;
+pub mod digest;
 pub mod error;
 pub mod extract;
 pub mod fields;
@@ -21,6 +24,8 @@ pub mod header;
 pub mod http;
 pub mod io;
 pub mod parse;
+pub(crate) mod util;
+pub mod verify;
 pub mod warc;
 
 #[cfg(feature = "app")]

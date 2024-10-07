@@ -18,7 +18,7 @@ impl FieldsExt for HeaderFields {
         for value in self.get_all(name) {
             if let Some(value) = value.as_text() {
                 for item in value.split(",") {
-                    let item = to_ascii_lowercase_cow(item.trim());
+                    let item = crate::util::to_ascii_lowercase_cow(item.trim());
 
                     if !list.contains(&item) {
                         list.push(item);
@@ -39,13 +39,5 @@ impl FieldsExt for HeaderFields {
         } else {
             None
         }
-    }
-}
-
-fn to_ascii_lowercase_cow(text: &str) -> Cow<'_, str> {
-    if text.chars().any(|c| c.is_ascii_uppercase()) {
-        Cow::Owned(text.to_ascii_lowercase())
-    } else {
-        Cow::Borrowed(text)
     }
 }

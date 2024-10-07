@@ -26,7 +26,7 @@ use zstd::stream::{
     read::Decoder as ZstdDecoder, write::Decoder as ZstdPushDecoder, write::Encoder as ZstdEncoder,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 /// Level of compression.
 pub enum Level {
     /// Compression level with balance between speed and resource consumption.
@@ -43,7 +43,7 @@ impl Default for Level {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 /// Compression format.
 pub enum Format {
     /// No codec. Leave data unchanged.

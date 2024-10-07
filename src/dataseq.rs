@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Serialize};
 const RS: u8 = b'\x1e';
 const RS_SEQ: &[u8] = b"\x1e";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SeqFormat {
     /// JSON sequences (RFC 7464)
     JsonSeq,

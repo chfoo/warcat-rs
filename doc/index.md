@@ -11,7 +11,7 @@ This documentation provides a user guide for the Warcat application.
 :maxdepth: 2
 :caption: Contents:
 
-install
+setup
 intro_to_cli
 integration
 export_import

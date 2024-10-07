@@ -14,6 +14,8 @@ use crate::{
 
 use super::arg::ExtractCommand;
 
+// FIXME: continuation records not yet implemented.
+
 pub fn extract(args: &ExtractCommand) -> anyhow::Result<()> {
     let output_dir = &args.output;
 
