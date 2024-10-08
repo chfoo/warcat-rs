@@ -28,12 +28,16 @@ pub enum ProblemKind {
     UnsupportedRecordType(String),
     RequiredFieldMissing(String),
     ProhibitedField(String),
-    TargetConcurrentToMissing(String),
+    ReferencedRecordMissing(String),
     UnknownDigest(String),
     BadSpecUri(String),
     ParseInt(String),
-    InvalidBeginSegment,
-    InvalidEndSegment,
+    InvalidSegment,
+    MissingSegment(u64),
+    MismatchedSegmentLength {
+        expect: u64,
+        actual: u64,
+    },
     DigestMismatch {
         algorithm: String,
         expected: String,
@@ -62,6 +66,9 @@ pub struct Verifier {
     problems: Vec<Problem>,
     id_references_cursor: Option<String>,
     segment_length_cursor: Option<String>,
+    header: WarcHeader,
+    digests: HashMap<Algorithm, Digest>,
+    hashers: Vec<Hasher>,
 }
 
 impl Verifier {
@@ -81,11 +88,21 @@ impl Verifier {
     }
 
     fn new_impl(db: Database) -> Result<Self, StorageError> {
+        let txn = db.begin_write()?;
+        txn.open_table(RECORDS_TABLE)?;
+        txn.open_multimap_table(ID_REFERENCES_TABLE)?;
+        txn.open_table(SEGMENT_ID_TABLE)?;
+        txn.open_table(SEGMENT_LENGTH_TABLE)?;
+        txn.commit()?;
+
         Ok(Self {
             db,
             problems: Vec::new(),
             id_references_cursor: Some(String::new()),
             segment_length_cursor: Some(String::new()),
+            header: WarcHeader::empty(),
+            digests: HashMap::new(),
+            hashers: Vec::new(),
         })
     }
 
@@ -97,29 +114,26 @@ impl Verifier {
         &mut self.problems
     }
 
-    pub fn verify_record<'a>(
-        &'a mut self,
-        header: &'a WarcHeader,
-    ) -> Result<VerifierRecord<'a>, StorageError> {
-        let mut record = VerifierRecord::new(&mut self.db, &mut self.problems, header);
-        record.process_header()?;
-        Ok(record)
+    /// Starts verifying a record.
+    ///
+    /// After calling this function, call [`block_data()`](Self::block_data).
+    pub fn begin_record(&mut self, header: &WarcHeader) -> Result<(), StorageError> {
+        self.header = header.clone();
+        self.digests.clear();
+        self.hashers.clear();
+
+        self.process_header()?;
+
+        Ok(())
     }
 
+    /// Finish processing any remaining verification.
+    ///
+    /// This function should be repeated called until [`VerifyStatus::Done`]
+    /// is returned.
     pub fn verify_end(&mut self) -> Result<VerifyStatus, StorageError> {
-        let txn = self.db.begin_read()?;
-        let records_table = txn.open_table(RECORDS_TABLE)?;
-        let id_references_table = txn.open_multimap_table(ID_REFERENCES_TABLE)?;
-        let segment_id_table = txn.open_table(SEGMENT_ID_TABLE)?;
-        let segment_length_table = txn.open_table(SEGMENT_LENGTH_TABLE)?;
-
-        if let Some(cursor) = &self.id_references_cursor {
-            todo!()
-        }
-
-        if let Some(cursor) = &self.segment_length_cursor {
-            todo!()
-        }
+        self.check_references()?;
+        self.check_segments()?;
 
         if self.id_references_cursor.is_none() && self.segment_length_cursor.is_none() {
             Ok(VerifyStatus::Done)
@@ -127,41 +141,96 @@ impl Verifier {
             Ok(VerifyStatus::HasMore)
         }
     }
-}
 
-impl Default for Verifier {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+    fn check_references(&mut self) -> Result<(), StorageError> {
+        tracing::trace!("check references");
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum VerifyStatus {
-    HasMore,
-    Done,
-}
+        let txn = self.db.begin_read()?;
+        let records_table = txn.open_table(RECORDS_TABLE)?;
+        let id_references_table = txn.open_multimap_table(ID_REFERENCES_TABLE)?;
 
-pub struct VerifierRecord<'a> {
-    db: &'a Database,
-    problems: &'a mut Vec<Problem>,
-    header: &'a WarcHeader,
-    digests: HashMap<Algorithm, Digest>,
-    hashers: Vec<Hasher>,
-}
+        if let Some(cursor) = self.id_references_cursor.take() {
+            let cursor = cursor.as_str();
 
-impl<'a> VerifierRecord<'a> {
-    pub(crate) fn new(
-        database: &'a Database,
-        problems: &'a mut Vec<Problem>,
-        header: &'a WarcHeader,
-    ) -> Self {
-        Self {
-            db: database,
-            problems,
-            header,
-            digests: HashMap::new(),
-            hashers: Vec::new(),
+            for (index, item) in id_references_table.range(cursor..)?.enumerate() {
+                let (key, values) = item?;
+                let record_id = key.value();
+
+                if index == 1025 {
+                    self.id_references_cursor = Some(record_id.to_string());
+                    break;
+                }
+
+                for item in values {
+                    let item = item?;
+                    let (target_id, _target_type) = item.value();
+
+                    if records_table.get(target_id)?.is_none() {
+                        self.problems.push(Problem::new(
+                            record_id.to_string(),
+                            ProblemKind::ReferencedRecordMissing(target_id.to_string()),
+                        ));
+                    }
+                }
+            }
         }
+
+        Ok(())
+    }
+
+    fn check_segments(&mut self) -> Result<(), StorageError> {
+        tracing::trace!("check segments");
+
+        let txn = self.db.begin_read()?;
+
+        let segment_id_table = txn.open_table(SEGMENT_ID_TABLE)?;
+        let segment_length_table = txn.open_table(SEGMENT_LENGTH_TABLE)?;
+
+        if let Some(cursor) = self.segment_length_cursor.take() {
+            let cursor = cursor.as_str();
+
+            for (index, item) in segment_length_table.range(cursor..)?.enumerate() {
+                let (key, value) = item?;
+                let origin_id = key.value();
+                let expected_total_length = value.value();
+
+                if index == 1025 {
+                    self.segment_length_cursor = Some(origin_id.to_string());
+                }
+
+                let mut expected_number = 1u64;
+                let mut current_total_length = 0u64;
+
+                for item in segment_id_table.range((origin_id, 1)..(origin_id, u64::MAX))? {
+                    let (key, value) = item?;
+                    let (origin_id, number) = key.value();
+                    let block_length = value.value();
+
+                    if number != expected_number {
+                        self.problems.push(Problem::new(
+                            origin_id.to_string(),
+                            ProblemKind::MissingSegment(expected_number),
+                        ));
+                        expected_number = number;
+                    }
+
+                    expected_number += 1;
+                    current_total_length += block_length;
+                }
+
+                if expected_total_length != current_total_length {
+                    self.problems.push(Problem::new(
+                        origin_id.to_string(),
+                        ProblemKind::MismatchedSegmentLength {
+                            expect: expected_total_length,
+                            actual: current_total_length,
+                        },
+                    ));
+                }
+            }
+        }
+
+        Ok(())
     }
 
     fn record_id(&self) -> &str {
@@ -169,7 +238,7 @@ impl<'a> VerifierRecord<'a> {
     }
 
     fn record_type(&self) -> &str {
-        self.header.fields.get_or_default("WARC-Record-Type")
+        self.header.fields.get_or_default("WARC-Type")
     }
 
     fn add_problem(&mut self, kind: ProblemKind) {
@@ -201,7 +270,7 @@ impl<'a> VerifierRecord<'a> {
         types.contains(&self.record_type())
     }
 
-    pub(crate) fn process_header(&mut self) -> Result<(), StorageError> {
+    pub fn process_header(&mut self) -> Result<(), StorageError> {
         self.mandatory_fields();
         self.concurrent_to()?;
         self.refers_to()?;
@@ -224,6 +293,8 @@ impl<'a> VerifierRecord<'a> {
     }
 
     fn mandatory_fields(&mut self) {
+        tracing::trace!("check mandatory fields");
+
         self.require_fields(&["WARC-Record-ID", "Content-Length", "WARC-Date", "WARC-Type"]);
 
         if !self.is_any_record_type(&[
@@ -243,6 +314,8 @@ impl<'a> VerifierRecord<'a> {
     }
 
     fn concurrent_to(&mut self) -> Result<(), StorageError> {
+        tracing::trace!("check concurrent-to");
+
         if self.is_any_record_type(&["warcinfo", "conversion", "continuation"])
             && self.prohibit_field("WARC-Concurrent-To")
         {
@@ -264,6 +337,8 @@ impl<'a> VerifierRecord<'a> {
     }
 
     fn refers_to(&mut self) -> Result<(), StorageError> {
+        tracing::trace!("check refers-to");
+
         if self.is_any_record_type(&[
             "warcinfo",
             "response",
@@ -290,6 +365,8 @@ impl<'a> VerifierRecord<'a> {
     }
 
     fn refers_to_target_uri(&mut self) {
+        tracing::trace!("check refers-to-target-uri");
+
         if self.is_any_record_type(&[
             "warcinfo",
             "response",
@@ -304,6 +381,8 @@ impl<'a> VerifierRecord<'a> {
     }
 
     fn refers_to_date(&mut self) {
+        tracing::trace!("check refers-to-date");
+
         if self.is_any_record_type(&[
             "warcinfo",
             "response",
@@ -318,6 +397,8 @@ impl<'a> VerifierRecord<'a> {
     }
 
     fn target_uri(&mut self) {
+        tracing::trace!("check target-uri");
+
         if self.header.fields.contains_name("WARC-Target-URI")
             && self.is_any_record_type(&["warcinfo"])
         {
@@ -343,6 +424,8 @@ impl<'a> VerifierRecord<'a> {
     }
 
     fn warcinfo_id(&mut self) -> Result<(), StorageError> {
+        tracing::trace!("check warcinfo-id");
+
         if self.is_any_record_type(&["warcinfo"]) && self.prohibit_field("WARC-Target-URI") {
             return Ok(());
         }
@@ -360,12 +443,16 @@ impl<'a> VerifierRecord<'a> {
     }
 
     fn filename(&mut self) {
+        tracing::trace!("check filename");
+
         if !self.is_any_record_type(&["warcinfo"]) {
             self.prohibit_field("WARC-Filename");
         }
     }
 
     fn profile(&mut self) {
+        tracing::trace!("check profile");
+
         if self.is_any_record_type(&["profile"]) {
             self.require_field("WARC-Profile");
         }
@@ -375,6 +462,8 @@ impl<'a> VerifierRecord<'a> {
     }
 
     fn segment(&mut self) -> Result<(), StorageError> {
+        tracing::trace!("check segment");
+
         if self.is_any_record_type(&["continuation"]) {
             self.require_field("WARC-Segment-Origin-ID");
             self.require_field("WARC-Segment-Total-Length");
@@ -416,7 +505,7 @@ impl<'a> VerifierRecord<'a> {
 
     fn segment_begin(&mut self) -> Result<(), StorageError> {
         if self.is_any_record_type(&["continuation"]) {
-            self.add_problem(ProblemKind::InvalidBeginSegment);
+            self.add_problem(ProblemKind::InvalidSegment);
         }
 
         let txn = self.db.begin_write()?;
@@ -470,22 +559,39 @@ impl<'a> VerifierRecord<'a> {
     }
 
     fn block_digest(&mut self) {
+        tracing::trace!("check block-digest");
+
+        let mut pending_problems = Vec::new();
+
         for value in self.header.fields.get_all("WARC-Block-Digest") {
             if let Ok(digest) = Digest::from_str(value) {
                 self.digests.insert(digest.algorithm(), digest);
             } else {
-                self.add_problem(ProblemKind::UnknownDigest(value.to_string()));
+                pending_problems.push(ProblemKind::UnknownDigest(value.to_string()));
             }
         }
+
+        for kind in pending_problems.into_iter() {
+            self.add_problem(kind);
+        }
+
+        // TODO: support WARC-Payload-Digest
     }
 
+    /// Process the block data of a record.
+    ///
+    /// This function should be called until there is no more block data.
+    /// Then, call [`end_record()`](Self::end_record).
     pub fn block_data(&mut self, data: &[u8]) {
         for hasher in &mut self.hashers {
             hasher.update(data);
         }
     }
 
-    pub fn finish_block(&mut self) {
+    /// Indicate the end of the record.
+    ///
+    /// Call [`begin_record()`](Self::begin_record) or [`verify_end()`](Self::verify_end) next.
+    pub fn end_record(&mut self) {
         let mut hashers = std::mem::take(&mut self.hashers);
 
         for hasher in &mut hashers {
@@ -493,7 +599,7 @@ impl<'a> VerifierRecord<'a> {
 
             let digest = self.digests.get(&hasher.algorithm()).unwrap();
 
-            if digest.value() != &value {
+            if digest.value() != value {
                 self.add_problem(ProblemKind::DigestMismatch {
                     algorithm: hasher.algorithm().to_string(),
                     expected: HEXLOWER.encode(digest.value()),
@@ -504,4 +610,16 @@ impl<'a> VerifierRecord<'a> {
 
         self.hashers = hashers;
     }
+}
+
+impl Default for Verifier {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum VerifyStatus {
+    HasMore,
+    Done,
 }

@@ -30,7 +30,8 @@ pub fn is_installer() -> bool {
         return false;
     }
 
-    let name = takecrate::os::current_exe_name().unwrap_or_default();
+    let name = std::env::current_exe().unwrap_or_default();
+    let name = name.file_stem().unwrap_or_default();
     let name = name.to_string_lossy();
     let pattern = Regex::new(r"(?-ui:[. _-]installer)$").unwrap();
     pattern.is_match(&name)

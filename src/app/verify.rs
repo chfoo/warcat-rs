@@ -1,9 +1,95 @@
-use std::process::ExitCode;
+use std::{cell::RefCell, process::ExitCode, rc::Rc};
+
+use crate::{
+    app::common::{ReaderEvent, ReaderPipeline},
+    dataseq::SeqWriter,
+    verify::{Verifier, VerifyStatus},
+};
 
 use super::arg::VerifyCommand;
 
 const VERIFY_FAILED_EXIT_CODE: u8 = 8;
 
 pub fn verify(args: &VerifyCommand) -> anyhow::Result<ExitCode> {
-    todo!()
+    let output_path = &args.output;
+    let output = super::common::open_output(output_path)?;
+    let seq_format = args.format.into();
+
+    let mut writer = SeqWriter::new(output, seq_format);
+    let mut problem_count = 0u64;
+    let verifier = Rc::new(RefCell::new(Verifier::new()));
+
+    for input_path in &args.input {
+        let span = tracing::info_span!("verify", path = ?input_path);
+        let _span_guard = span.enter();
+
+        let input = super::common::open_input(input_path)?;
+
+        tracing::info!("opened file");
+
+        let compression_format = args.compression.try_into_native(input_path)?;
+        let file_len = std::fs::metadata(input_path).map(|m| m.len()).ok();
+
+        ReaderPipeline::new(
+            |event| match event {
+                ReaderEvent::Header {
+                    header,
+                    record_boundary_position: _,
+                } => {
+                    let mut verifier = verifier.borrow_mut();
+
+                    for problem in verifier.problems() {
+                        problem_count += 1;
+                        writer.put(problem)?;
+                    }
+                    verifier.problems_mut().clear();
+                    verifier.begin_record(&header)?;
+
+                    Ok(())
+                }
+                ReaderEvent::Block { data } => {
+                    let mut verifier = verifier.borrow_mut();
+
+                    if data.is_empty() {
+                        verifier.end_record();
+                    } else {
+                        verifier.block_data(data);
+                    }
+
+                    Ok(())
+                }
+            },
+            input,
+            compression_format,
+            file_len,
+        )?
+        .run()?;
+
+        let mut verifier = verifier.borrow_mut();
+
+        loop {
+            let action = verifier.verify_end()?;
+
+            for problem in verifier.problems() {
+                problem_count += 1;
+                writer.put(problem)?;
+            }
+            verifier.problems_mut().clear();
+
+            match action {
+                VerifyStatus::HasMore => {}
+                VerifyStatus::Done => break,
+            }
+        }
+
+        tracing::info!("closed file");
+    }
+
+    let exit_code = if problem_count == 0 {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(VERIFY_FAILED_EXIT_CODE)
+    };
+
+    Ok(exit_code)
 }
