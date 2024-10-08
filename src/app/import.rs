@@ -5,6 +5,7 @@ use indicatif::ProgressBar;
 use crate::{
     compress::{Format, Level},
     dataseq::{SeqFormat, SeqReader},
+    digest::{AlgorithmName, MultiHasher},
     header::WarcHeader,
     io::{BufferReader, LogicalPosition},
     warc::{EncStateBlock, EncStateHeader, Encoder, EncoderConfig},
@@ -58,7 +59,7 @@ struct Importer {
     progress_bar: ProgressBar,
     input: SeqReader<BufferReader<ProgramInput>>,
     state: State,
-    crc32c: u32,
+    multi_hasher: MultiHasher,
 }
 
 impl Importer {
@@ -80,7 +81,11 @@ impl Importer {
             progress_bar,
             input: SeqReader::new(BufferReader::new(input), seq_format),
             state: State::Header(output),
-            crc32c: 0,
+            multi_hasher: MultiHasher::new(&[
+                AlgorithmName::Crc32,
+                AlgorithmName::Crc32c,
+                AlgorithmName::Xxh3,
+            ]),
         })
     }
 
@@ -172,7 +177,7 @@ impl Importer {
         chunk: super::model::BlockChunk,
     ) -> anyhow::Result<()> {
         writer.write_all(&chunk.data)?;
-        self.crc32c = crc32c::crc32c_append(self.crc32c, &chunk.data);
+        self.multi_hasher.update(&chunk.data);
 
         self.state = State::Block(writer);
 
@@ -184,15 +189,30 @@ impl Importer {
         writer: Encoder<EncStateBlock, ProgramOutput>,
         end: super::model::BlockEnd,
     ) -> anyhow::Result<()> {
-        if end.crc32c != self.crc32c {
-            anyhow::bail!(
-                "CRC32C mismatch: expect {}, actual {}",
-                end.crc32c,
-                self.crc32c
-            )
+        let checksum_map = self.multi_hasher.finish_u64();
+
+        if let Some(expect) = end.crc32 {
+            let actual = checksum_map[&AlgorithmName::Crc32] as u32;
+
+            if expect != actual {
+                anyhow::bail!("CRC32 mismatch: expect {}, actual {}", expect, actual)
+            }
+        } else if let Some(expect) = end.crc32c {
+            let actual = checksum_map[&AlgorithmName::Crc32c] as u32;
+
+            if expect != actual {
+                anyhow::bail!("CRC32C mismatch: expect {}, actual {}", expect, actual)
+            }
+        } else if let Some(expect) = end.xxh3 {
+            let actual = checksum_map[&AlgorithmName::Xxh3];
+
+            if expect != actual {
+                anyhow::bail!("Xxhash3 mismatch: expect {}, actual {}", expect, actual)
+            }
+        } else {
+            anyhow::bail!("no checksum provided");
         }
 
-        self.crc32c = 0;
         self.state = State::Header(writer.finish_block()?);
 
         Ok(())

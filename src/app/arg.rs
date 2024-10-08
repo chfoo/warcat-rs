@@ -234,6 +234,10 @@ pub enum SerializationFormat {
     /// Each message is a JSON object delimitated by a Record Separator (U+001E)
     /// and a Line Feed (U+000A).
     JsonSeq,
+    /// JSON Lines
+    ///
+    /// Each message is a JSON object terminated by a Line Feed (U+000A).
+    Jsonl,
     /// CBOR sequences (RFC 8742).
     ///
     /// Messages are a series of consecutive CBOR data items.
@@ -244,6 +248,7 @@ impl From<SerializationFormat> for crate::dataseq::SeqFormat {
     fn from(value: SerializationFormat) -> Self {
         match value {
             SerializationFormat::JsonSeq => Self::JsonSeq,
+            SerializationFormat::Jsonl => Self::JsonL,
             SerializationFormat::CborSeq => Self::CborSeq,
         }
     }
@@ -251,8 +256,20 @@ impl From<SerializationFormat> for crate::dataseq::SeqFormat {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum ListSerializationFormat {
+    /// JSON sequences (RFC 7464)
+    ///
+    /// Each message is a JSON object delimitated by a Record Separator (U+001E)
+    /// and a Line Feed (U+000A).
     JsonSeq,
+    /// JSON Lines
+    ///
+    /// Each message is a JSON object terminated by a Line Feed (U+000A).
+    Jsonl,
+    /// CBOR sequences (RFC 8742).
+    ///
+    /// Messages are a series of consecutive CBOR data items.
     CborSeq,
+    /// Comma separated values.
     Csv,
 }
 
@@ -260,6 +277,7 @@ impl From<ListSerializationFormat> for crate::dataseq::SeqFormat {
     fn from(value: ListSerializationFormat) -> Self {
         match value {
             ListSerializationFormat::JsonSeq => Self::JsonSeq,
+            ListSerializationFormat::Jsonl => Self::JsonL,
             ListSerializationFormat::CborSeq => Self::CborSeq,
             ListSerializationFormat::Csv => Self::Csv,
         }

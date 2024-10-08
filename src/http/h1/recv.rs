@@ -31,7 +31,7 @@ enum State {
     End,
 }
 
-/// Decodes a HTTP request/response session
+/// Decodes a HTTP request/response message.
 #[derive(Debug)]
 pub struct Receiver {
     state: State,
@@ -58,10 +58,12 @@ impl Receiver {
         }
     }
 
+    /// Put input data.
     pub fn recv_data(&mut self, data: &[u8]) {
         self.input_buf.extend_from_slice(data);
     }
 
+    /// Process the input data and return an output.
     pub fn get_event(&mut self) -> Result<ReceiverEvent, GeneralError> {
         match self.state {
             State::Header => self.process_header(),
@@ -71,6 +73,7 @@ impl Receiver {
         }
     }
 
+    /// If at the end of message, reset this struct for a new message.
     pub fn next_message(&mut self) -> Result<(), ProtocolError> {
         if self.state != State::End {
             return Err(ProtocolError::new(

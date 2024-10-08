@@ -5,12 +5,16 @@ use crate::error::ParseError;
 use super::WarcFields;
 
 pub trait FieldsExt {
+    /// Returns the value if the name is present, otherwise empty string.
     fn get_or_default<N: AsRef<str>>(&self, name: N) -> &str;
 
+    /// Parse a "content-type" field.
     fn get_media_type<N: AsRef<str>>(&self, name: N) -> Result<Option<MediaType>, ParseError>;
 
+    /// Returns whether the value is delimitated by `<` and `>`.
     fn is_formatted_bad_spec_url<N: AsRef<str>>(&self, name: N) -> bool;
 
+    /// Returns the value with the deliminator `<` and `>` removed.
     fn get_bad_spec_url<N: AsRef<str>>(&self, name: N) -> Option<&str>;
 }
 

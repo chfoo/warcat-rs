@@ -4,6 +4,7 @@ use crate::{
         model::{self, WarcMessage},
     },
     dataseq::SeqWriter,
+    digest::{AlgorithmName, MultiHasher},
 };
 
 use super::{arg::ExportCommand, common::ReaderPipeline};
@@ -24,7 +25,11 @@ pub fn export(args: &ExportCommand) -> anyhow::Result<()> {
         let compression_format = args.compression.try_into_native(input_path)?;
         let file_len = std::fs::metadata(input_path).map(|m| m.len()).ok();
         let mut writer = SeqWriter::new(output, seq_format);
-        let mut checksum = 0u32;
+        let mut hasher = MultiHasher::new(&[
+            AlgorithmName::Crc32,
+            AlgorithmName::Crc32c,
+            AlgorithmName::Xxh3,
+        ]);
 
         ReaderPipeline::new(
             |event| match event {
@@ -48,14 +53,18 @@ pub fn export(args: &ExportCommand) -> anyhow::Result<()> {
                 }
                 ReaderEvent::Block { data } => {
                     if data.is_empty() {
-                        let message = WarcMessage::BlockEnd(model::BlockEnd { crc32c: checksum });
+                        let checksum_map = hasher.finish_u64();
+                        let message = WarcMessage::BlockEnd(model::BlockEnd {
+                            crc32: Some(checksum_map[&AlgorithmName::Crc32] as u32),
+                            crc32c: Some(checksum_map[&AlgorithmName::Crc32c] as u32),
+                            xxh3: Some(checksum_map[&AlgorithmName::Xxh3]),
+                        });
                         writer.put(message)?;
-                        checksum = 0;
                     } else {
                         let message = WarcMessage::BlockChunk(model::BlockChunk {
                             data: data.to_vec(),
                         });
-                        checksum = crc32c::crc32c_append(checksum, data);
+                        hasher.update(data);
                         writer.put(message)?;
                     }
 

@@ -17,6 +17,8 @@ WARC archive tool
 * `import` — Encodes a WARC file from messages in a format of the `export` subcommand
 * `list` — Provides a listing of the WARC records
 * `extract` — Extracts resources for casual viewing of the WARC contents
+* `verify` — Perform specification and integrity checks on WARC files
+* `self` — Self-installer and uninstaller
 
 ###### **Options:**
 
@@ -69,6 +71,8 @@ Decodes a WARC file to messages in a easier-to-process format such as JSON
   Possible values:
   - `json-seq`:
     JSON sequences (RFC 7464)
+  - `jsonl`:
+    JSON Lines
   - `cbor-seq`:
     CBOR sequences (RFC 8742)
 
@@ -93,6 +97,8 @@ Encodes a WARC file from messages in a format of the `export` subcommand
   Possible values:
   - `json-seq`:
     JSON sequences (RFC 7464)
+  - `jsonl`:
+    JSON Lines
   - `cbor-seq`:
     CBOR sequences (RFC 8742)
 
@@ -160,7 +166,15 @@ Provides a listing of the WARC records
 
   Default value: `json-seq`
 
-  Possible values: `json-seq`, `cbor-seq`, `csv`
+  Possible values:
+  - `json-seq`:
+    JSON sequences (RFC 7464)
+  - `jsonl`:
+    JSON Lines
+  - `cbor-seq`:
+    CBOR sequences (RFC 8742)
+  - `csv`:
+    Comma separated values
 
 * `--field <FIELD>` — Fields to include in the listing.
 
@@ -204,6 +218,88 @@ This operation does not automatically permit offline viewing of archived website
 * `--output <OUTPUT>` — Path to the output directory
 
   Default value: `./`
+
+
+
+## `warcat verify`
+
+Perform specification and integrity checks on WARC files
+
+**Usage:** `warcat verify [OPTIONS]`
+
+###### **Options:**
+
+* `--input <INPUT>` — Path to the WARC file
+
+  Default value: `-`
+* `--compression <COMPRESSION>` — Compression format of the input WARC file
+
+  Default value: `auto`
+
+  Possible values:
+  - `auto`:
+    Automatically detect the format by the filename extension
+  - `none`:
+    No compression
+  - `gzip`:
+    Gzip format
+  - `zstandard`:
+    Zstandard format
+
+* `--output <OUTPUT>` — Path to output problems
+
+  Default value: `-`
+* `--format <FORMAT>` — Format of the output
+
+  Default value: `json-seq`
+
+  Possible values:
+  - `json-seq`:
+    JSON sequences (RFC 7464)
+  - `jsonl`:
+    JSON Lines
+  - `cbor-seq`:
+    CBOR sequences (RFC 8742)
+  - `csv`:
+    Comma separated values
+
+
+
+
+## `warcat self`
+
+Self-installer and uninstaller
+
+**Usage:** `warcat self <COMMAND>`
+
+###### **Subcommands:**
+
+* `install` — Launch the interactive self-installer
+* `uninstall` — Launch the interactive uninstaller
+
+
+
+## `warcat self install`
+
+Launch the interactive self-installer
+
+**Usage:** `warcat self install [OPTIONS]`
+
+###### **Options:**
+
+* `--quiet` — Install automatically without user interaction
+
+
+
+## `warcat self uninstall`
+
+Launch the interactive uninstaller
+
+**Usage:** `warcat self uninstall [OPTIONS]`
+
+###### **Options:**
+
+* `--quiet` — Uninstall automatically without user interaction
 
 
 

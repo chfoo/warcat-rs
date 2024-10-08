@@ -31,5 +31,7 @@ pub struct BlockChunk {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BlockEnd {
-    pub crc32c: u32,
+    pub crc32: Option<u32>,
+    pub crc32c: Option<u32>,
+    pub xxh3: Option<u64>,
 }

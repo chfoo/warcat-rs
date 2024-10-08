@@ -7,9 +7,10 @@ use super::{
     header::{MessageHeader, TrailerFields},
 };
 
-/// Encodes a HTTP request/response session
+/// Encodes a HTTP request/response message.
 ///
-/// Important: This struct makes no semantic validation!
+/// Important: This struct makes no semantic validation! It simply outputs
+/// what you call.
 pub struct Sender {
     codec_pipeline: CodecPipeline,
     output_buf: VecDeque<u8>,
@@ -23,6 +24,7 @@ impl Sender {
         }
     }
 
+    /// Send the header.
     pub fn send_header(&mut self, header: &MessageHeader) -> Result<(), GeneralError> {
         let mut codecs = Vec::new();
         super::codec::build_encoders(header, &mut codecs)?;
@@ -34,12 +36,16 @@ impl Sender {
         Ok(())
     }
 
+    /// Send body data.
     pub fn send_body(&mut self, data: &[u8]) -> Result<(), GeneralError> {
         self.codec_pipeline.transform(data, &mut self.output_buf)?;
 
         Ok(())
     }
 
+    /// Ends the message with a chunked-transfer encoding.
+    ///
+    /// Flushes any buffered output and outputs the trailer.
     pub fn send_trailer(&mut self, fields: &TrailerFields) -> Result<(), GeneralError> {
         self.codec_pipeline.finish_input(&mut self.output_buf)?;
 
@@ -48,16 +54,19 @@ impl Sender {
         Ok(())
     }
 
+    /// Ends the message, flushing any buffered output.
     pub fn end_message(&mut self) -> Result<(), GeneralError> {
         self.codec_pipeline.finish_input(&mut self.output_buf)?;
 
         Ok(())
     }
 
+    /// At the end of the message, reset the internal state for a new message.
     pub fn reset(&mut self) {
         self.codec_pipeline = CodecPipeline::default();
     }
 
+    /// Writes the output data into the given buffer and returns the amount written.
     pub fn read_output(&mut self, buf: &mut [u8]) -> usize {
         self.output_buf.read(buf).unwrap()
     }

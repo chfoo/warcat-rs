@@ -6,7 +6,14 @@ import message
 
 def main():
     with subprocess.Popen(
-        ["cargo", "run", "--", "export", "--input=examples/example.warc"],
+        [
+            "cargo",
+            "run",
+            "--",
+            "export",
+            "--input=examples/example.warc",
+            "--format=jsonl",
+        ],
         stdout=subprocess.PIPE,
     ) as process:
         for msg in message.decode(process.stdout):
@@ -16,7 +23,6 @@ def main():
                 print(len(msg.data))
             elif isinstance(msg, message.BlockEnd):
                 print("---")
-
 
 
 if __name__ == "__main__":

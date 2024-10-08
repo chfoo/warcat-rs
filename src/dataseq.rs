@@ -10,6 +10,8 @@ const RS_SEQ: &[u8] = b"\x1e";
 pub enum SeqFormat {
     /// JSON sequences (RFC 7464)
     JsonSeq,
+    /// JSON lines
+    JsonL,
     /// CBOR sequences (RFC 8742)
     CborSeq,
     /// Comma separated value
@@ -46,6 +48,7 @@ impl<R: BufRead> SeqReader<R> {
     pub fn get<T: DeserializeOwned>(&mut self) -> Result<Option<T>, SeqError> {
         match self.format {
             SeqFormat::JsonSeq => self.read_json(),
+            SeqFormat::JsonL => self.read_json_lines(),
             SeqFormat::CborSeq => self.read_cbor(),
             SeqFormat::Csv => todo!(),
         }
@@ -82,6 +85,26 @@ impl<R: BufRead> SeqReader<R> {
 
             return Ok(Some(message));
         }
+    }
+
+    fn read_json_lines<T: DeserializeOwned>(&mut self) -> Result<Option<T>, SeqError> {
+        let alphabet = base64::alphabet::STANDARD;
+        let config = base64::engine::GeneralPurposeConfig::new();
+
+        let read_len = self.input.read_until(b'\n', &mut self.buf)?;
+
+        if read_len == 0 {
+            return Ok(None);
+        }
+
+        let mut deserializer = serde_json::de::Deserializer::from_slice(&self.buf);
+        let deserializer =
+            serde_bytes_repr::ByteFmtDeserializer::new_base64(&mut deserializer, alphabet, config);
+        let message = T::deserialize(deserializer)?;
+
+        self.buf.clear();
+
+        Ok(Some(message))
     }
 
     fn read_cbor<T: DeserializeOwned>(&mut self) -> Result<Option<T>, SeqError> {
@@ -130,6 +153,7 @@ impl<W: Write> SeqWriter<W> {
     pub fn put<T: Serialize>(&mut self, value: T) -> Result<(), SeqError> {
         match self.format {
             SeqFormat::JsonSeq => self.write_json(value),
+            SeqFormat::JsonL => self.write_json_lines(value),
             SeqFormat::CborSeq => self.write_cbor(value),
             SeqFormat::Csv => self.write_csv(value),
         }
@@ -152,6 +176,20 @@ impl<W: Write> SeqWriter<W> {
                 serde_bytes_repr::ByteFmtSerializer::base64(&mut serializer, alphabet, config);
             value.serialize(serializer)?;
         }
+
+        self.output.write_all(b"\n")?;
+
+        Ok(())
+    }
+
+    fn write_json_lines<T: Serialize>(&mut self, value: T) -> Result<(), SeqError> {
+        let alphabet = base64::alphabet::STANDARD;
+        let config = base64::engine::GeneralPurposeConfig::new();
+
+        let mut serializer = serde_json::Serializer::new(&mut self.output);
+        let serializer =
+            serde_bytes_repr::ByteFmtSerializer::base64(&mut serializer, alphabet, config);
+        value.serialize(serializer)?;
 
         self.output.write_all(b"\n")?;
 

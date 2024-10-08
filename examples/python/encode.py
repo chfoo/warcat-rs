@@ -1,12 +1,12 @@
 import subprocess
-import json
+import zlib
 
 import message
 
 
 def main():
     with subprocess.Popen(
-        ["cargo", "run", "--", "import", "--compression=none"],
+        ["cargo", "run", "--", "import", "--compression=none", "--format=jsonl"],
         stdin=subprocess.PIPE,
     ) as process:
         header = message.Header(
@@ -18,10 +18,15 @@ def main():
         )
         message.encode(process.stdin, header)
 
-        block_chunk = message.BlockChunk(b"Hello world!")
+        checksum = 0
+
+        data = b"Hello world!"
+        checksum = zlib.crc32(data, checksum)
+
+        block_chunk = message.BlockChunk(data)
         message.encode(process.stdin, block_chunk)
 
-        block_end = message.BlockEnd(2073618257)
+        block_end = message.BlockEnd(checksum)
         message.encode(process.stdin, block_end)
 
 

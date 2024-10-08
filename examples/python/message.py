@@ -1,9 +1,6 @@
 import json
 import base64
 import io
-import os
-
-RECORD_SEPARATOR = b"\x1e"
 
 
 class Metadata:
@@ -55,7 +52,6 @@ class BlockChunk:
     def deserialize(data: str):
         return BlockChunk(base64.b64decode(data))
 
-
     def serialize(self) -> dict:
         return {"BlockChunk": {"data": base64.b64encode(self.data).decode("utf8")}}
 
@@ -63,14 +59,18 @@ class BlockChunk:
 class BlockEnd:
     crc32c: int
 
-    def __init__(self, crc32c: int):
+    def __init__(self, crc32: int = None, crc32c: int = None, xxh3: int = None):
+        self.crc32 = crc32
         self.crc32c = crc32c
+        self.xxh3 = xxh3
 
-    def deserialize(crc32c: int):
-        return BlockEnd(crc32c)
+    def deserialize(crc32: int = None, crc32c: int = None, xxh3: int = None):
+        return BlockEnd(crc32, crc32c, xxh3)
 
     def serialize(self) -> dict:
-        return {"BlockEnd": {"crc32c": self.crc32c}}
+        return {
+            "BlockEnd": {"crc32": self.crc32, "crc32c": self.crc32c, "xxh3": self.xxh3}
+        }
 
 
 MESSAGE_TABLE = {
@@ -100,30 +100,12 @@ def message_object_hook(obj: dict):
 def encode(stream: io.BufferedIOBase, message):
     data = MessageEncoder().encode(message).encode("utf8")
 
-    stream.write(RECORD_SEPARATOR)
     stream.write(data)
     stream.write(b"\n")
 
 
 def decode(stream: io.BufferedIOBase):
-    buffer = bytearray()
-
     for line in stream.readlines():
-        buffer.extend(line)
+        segment = line.decode("utf8")
 
-        if RECORD_SEPARATOR not in buffer:
-            continue
-
-        if RECORD_SEPARATOR in buffer:
-            segment, _, buffer = buffer.partition(RECORD_SEPARATOR)
-            segment = segment.decode("utf8")
-
-        if len(segment.strip()) == 0:
-            continue
-
-        yield json.loads(segment, object_hook=message_object_hook)
-
-    segment = buffer.decode("utf8")
-
-    if len(segment.strip()):
         yield json.loads(segment, object_hook=message_object_hook)

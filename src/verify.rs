@@ -7,7 +7,7 @@ use redb::{backends::InMemoryBackend, Database, MultimapTableDefinition, TableDe
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    digest::{Algorithm, Digest, Hasher},
+    digest::{AlgorithmName, Digest, Hasher},
     error::StorageError,
     header::{fields::FieldsExt, WarcHeader},
 };
@@ -67,7 +67,7 @@ pub struct Verifier {
     id_references_cursor: Option<String>,
     segment_length_cursor: Option<String>,
     header: WarcHeader,
-    digests: HashMap<Algorithm, Digest>,
+    digests: HashMap<AlgorithmName, Digest>,
     hashers: Vec<Hasher>,
 }
 

@@ -19,13 +19,17 @@ indicatif = { version = "0.17.8", optional = true }
 serde-bytes-repr = { version = "0.2.0", optional = true }
 takecrate = { version = "0.2.1", optional = true }
 tempfile = { version = "3.12.0", optional = true }
-tracing-subscriber = { version = "0.3.18", features = ["json"], optional = true }
-xxhash-rust = { version = "0.8.12", features = ["std", "xxh3"], optional = true }
+tracing-subscriber = { version = "0.3.18", features = [
+    "json",
+], optional = true }
 # Everything:
+blake2 = "0.10.6"
+blake3 = { version = "1.5.4", features = ["traits-preview"] }
 brotli = "6.0.0"
 chrono = "0.4.38"
 ciborium = "0.2.2"
 crc32c = "0.6.8"
+crc32fast = "1.4.2"
 csv = "1.3.0"
 data-encoding = "2.6.0"
 digest = "0.10.7"
@@ -34,16 +38,21 @@ md-5 = "0.10.6"
 nom = "7.1.3"
 percent-encoding = "2.3.1"
 redb = "2.1.3"
-regex = { version = "1.10.6", default-features = false, features = ["std", "perf"] }
+regex = { version = "1.10.6", default-features = false, features = [
+    "std",
+    "perf",
+] }
 serde = "1.0.209"
 serde_bytes = "0.11.15"
 serde_json = "1.0.127"
 sha1 = "0.10.6"
 sha2 = "0.10.8"
+sha3 = "0.10.8"
 thiserror = "1.0.63"
 tracing = "0.1.40"
 url = "2.5.2"
 uuid = { version = "1.10.0", features = ["v7"] }
+xxhash-rust = { version = "0.8.12", features = ["std", "xxh3"] }
 zstd = { version = "0.13.2", optional = true }
 
 [dev-dependencies]
@@ -66,7 +75,6 @@ app = [
     "dep:takecrate",
     "dep:tempfile",
     "dep:tracing-subscriber",
-    "dep:xxhash-rust",
     "serde/derive",
 ]
 
