@@ -2,6 +2,8 @@ use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 
+use crate::verify::Check;
+
 use super::format::filename_compression_format;
 
 /// WARC archive tool
@@ -158,6 +160,55 @@ pub struct VerifyCommand {
     /// Format of the output.
     #[clap(long, default_value = "json-seq")]
     pub format: ListSerializationFormat,
+
+    /// Do not perform check.
+    #[clap(long, value_delimiter = ',')]
+    pub exclude_check: Vec<VerifyCheck>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum VerifyCheck {
+    MandatoryFields,
+    KnownRecordType,
+    ContentType,
+    ConcurrentTo,
+    BlockDigest,
+    // PayloadDigest,
+    // IpAddress,
+    RefersTo,
+    RefersToTargetUri,
+    RefersToDate,
+    TargetUri,
+    Truncated,
+    WarcinfoId,
+    Filename,
+    Profile,
+    // IdentifiedPayloadType,
+    Segment,
+}
+
+impl From<VerifyCheck> for Check {
+    fn from(value: VerifyCheck) -> Self {
+        match value {
+            VerifyCheck::MandatoryFields => Self::MandatoryFields,
+            VerifyCheck::KnownRecordType => Self::KnownRecordType,
+            VerifyCheck::ContentType => Self::ContentType,
+            VerifyCheck::ConcurrentTo => Self::ConcurrentTo,
+            VerifyCheck::BlockDigest => Self::BlockDigest,
+            // VerifyCheck::PayloadDigest => Self::PayloadDigest,
+            // VerifyCheck::IpAddress => Self::IpAddress,
+            VerifyCheck::RefersTo => Self::RefersTo,
+            VerifyCheck::RefersToTargetUri => Self::RefersToTargetUri,
+            VerifyCheck::RefersToDate => Self::RefersToDate,
+            VerifyCheck::TargetUri => Self::TargetUri,
+            VerifyCheck::WarcinfoId => Self::WarcinfoId,
+            VerifyCheck::Truncated => Self::Truncated,
+            VerifyCheck::Filename => Self::Filename,
+            VerifyCheck::Profile => Self::Profile,
+            // VerifyCheck::IdentifiedPayloadType => Self::IdentifiedPayloadType,
+            VerifyCheck::Segment => Self::Segment,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -206,7 +257,7 @@ pub enum CompressionLevel {
     Balanced,
     /// Use a high level of resources to achieve a better compression ratio.
     ///
-    /// THis is slower and may use more memory.
+    /// This is slower and may use more memory.
     ///
     /// For older algorithms, this is usually the highest configuration
     /// possible.

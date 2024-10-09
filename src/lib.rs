@@ -6,9 +6,13 @@
 //!
 //! In general cases, users working with WARC files do not need to program
 //! directly with the library. The CLI application (the tool portion) is
-//! designed to be part of a Unix-style pipeline. This documentation is for
-//! the library portion. For details on the CLI, see the
-//! [user guide](https://warcat-rs.readthedocs.io/).
+//! designed to be part of a Unix-style pipeline.
+//!
+//! This documentation is for the library portion.
+//! For details on the CLI, see the [user guide](https://warcat-rs.readthedocs.io/).
+//!
+//! The library is designed first in mind for the binary, so some parts of
+//! the API will be unstable or not relevant.
 //!
 //! The main entrypoints to this library is [`warc::Decoder`] and [`warc::Encoder`].
 
@@ -28,6 +32,6 @@ pub(crate) mod util;
 pub mod verify;
 pub mod warc;
 
-#[cfg(feature = "app")]
+#[cfg(feature = "bin")]
 #[doc(hidden)]
 pub mod app;

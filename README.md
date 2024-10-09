@@ -34,6 +34,8 @@ The program will be placed in the `target` directory.
 
 * [Contributing](https://github.com/chfoo/warcat-rs/blob/main/.github/CONTRIBUTING.md)
 * [Support](https://github.com/chfoo/warcat-rs/blob/main/.github/SUPPORT.md)
+* [Changelog](https://github.com/chfoo/warcat-rs/blob/main/CHANGELOG.md)
+* [Development roadmap](https://github.com/chfoo/warcat-rs/blob/main/roadmap.md)
 
 ## License
 

@@ -1,6 +1,10 @@
 //! WARC file verification.
 
-use std::{collections::HashMap, path::Path, str::FromStr};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    str::FromStr,
+};
 
 use data_encoding::HEXLOWER;
 use redb::{backends::InMemoryBackend, Database, MultimapTableDefinition, TableDefinition};
@@ -22,16 +26,65 @@ const SEGMENT_ID_TABLE: TableDefinition<(&str, u64), u64> = TableDefinition::new
 // mapping of origin record ID => total length
 const SEGMENT_LENGTH_TABLE: TableDefinition<&str, u64> = TableDefinition::new("segment_lengths");
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Check {
+    MandatoryFields,
+    KnownRecordType,
+    ContentType,
+    ConcurrentTo,
+    BlockDigest,
+    // PayloadDigest,
+    // IpAddress,
+    RefersTo,
+    RefersToTargetUri,
+    RefersToDate,
+    TargetUri,
+    Truncated,
+    WarcinfoId,
+    Filename,
+    Profile,
+    // IdentifiedPayloadType,
+    Segment,
+}
+
+impl Check {
+    pub fn all() -> &'static [Self] {
+        &[
+            Self::MandatoryFields,
+            Self::KnownRecordType,
+            Self::ContentType,
+            Self::ConcurrentTo,
+            Self::BlockDigest,
+            // Self::PayloadDigest,
+            // Self::IpAddress,
+            Self::RefersTo,
+            Self::RefersToTargetUri,
+            Self::RefersToDate,
+            Self::TargetUri,
+            Self::Truncated,
+            Self::WarcinfoId,
+            Self::Filename,
+            Self::Profile,
+            // Self::IdentifiedPayloadType,
+            Self::Segment,
+        ]
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum ProblemKind {
-    UnsupportedRecordType(String),
+    UnknownRecordType(String),
     RequiredFieldMissing(String),
     ProhibitedField(String),
     ReferencedRecordMissing(String),
     UnknownDigest(String),
     BadSpecUri(String),
     ParseInt(String),
+    InvalidDate(String),
+    InvalidUrl(String),
+    InvalidIpAddress(String),
+    InvalidMediaType(String),
     InvalidSegment,
     MissingSegment(u64),
     MismatchedSegmentLength {
@@ -62,6 +115,7 @@ impl Problem {
 
 /// Checks WARCs for specification conformance and integrity.
 pub struct Verifier {
+    checks: HashSet<Check>,
     db: Database,
     problems: Vec<Problem>,
     id_references_cursor: Option<String>,
@@ -96,6 +150,7 @@ impl Verifier {
         txn.commit()?;
 
         Ok(Self {
+            checks: HashSet::from_iter(Check::all().iter().cloned()),
             db,
             problems: Vec::new(),
             id_references_cursor: Some(String::new()),
@@ -104,6 +159,14 @@ impl Verifier {
             digests: HashMap::new(),
             hashers: Vec::new(),
         })
+    }
+
+    pub fn checks(&self) -> &HashSet<Check> {
+        &self.checks
+    }
+
+    pub fn checks_mut(&mut self) -> &mut HashSet<Check> {
+        &mut self.checks
     }
 
     pub fn problems(&self) -> &[Problem] {
@@ -271,17 +334,42 @@ impl Verifier {
     }
 
     pub fn process_header(&mut self) -> Result<(), StorageError> {
-        self.mandatory_fields();
-        self.concurrent_to()?;
-        self.refers_to()?;
-        self.refers_to_target_uri();
-        self.refers_to_date();
-        self.target_uri();
-        self.warcinfo_id()?;
-        self.filename();
-        self.profile();
-        self.segment()?;
-        self.block_digest();
+        if self.checks.contains(&Check::MandatoryFields) {
+            self.mandatory_fields();
+        }
+        if self.checks.contains(&Check::ContentType) {
+            self.content_type();
+        }
+        if self.checks.contains(&Check::ConcurrentTo) {
+            self.concurrent_to()?;
+        }
+        if self.checks.contains(&Check::RefersTo) {
+            self.refers_to()?;
+        }
+        if self.checks.contains(&Check::RefersToTargetUri) {
+            self.refers_to_target_uri();
+        }
+        if self.checks.contains(&Check::RefersToDate) {
+            self.refers_to_date();
+        }
+        if self.checks.contains(&Check::TargetUri) {
+            self.target_uri();
+        }
+        if self.checks.contains(&Check::WarcinfoId) {
+            self.warcinfo_id()?;
+        }
+        if self.checks.contains(&Check::Filename) {
+            self.filename();
+        }
+        if self.checks.contains(&Check::Profile) {
+            self.profile();
+        }
+        if self.checks.contains(&Check::Segment) {
+            self.segment()?;
+        }
+        if self.checks.contains(&Check::BlockDigest) {
+            self.block_digest();
+        }
 
         let txn = self.db.begin_write()?;
         {
@@ -307,9 +395,21 @@ impl Verifier {
             "conversion",
             "continuation",
         ]) {
-            self.add_problem(ProblemKind::UnsupportedRecordType(
+            self.add_problem(ProblemKind::UnknownRecordType(
                 self.record_type().to_string(),
             ));
+        }
+
+        if let Some(Err(_error)) = self.header.fields.get_date("WARC-Date") {
+            self.add_problem(ProblemKind::InvalidDate("WARC-Date".to_string()));
+        }
+    }
+
+    fn content_type(&mut self) {
+        tracing::trace!("check content-type");
+
+        if let Some(Err(_error)) = self.header.fields.get_media_type("Content-Type") {
+            self.add_problem(ProblemKind::InvalidMediaType("Content-Type".to_string()));
         }
     }
 
@@ -378,6 +478,12 @@ impl Verifier {
         ]) {
             self.prohibit_field("WARC-Refers-To-Target-URI");
         }
+
+        if let Some(Err(_error)) = self.header.fields.get_url("WARC-Refers-To-Target-URI") {
+            self.add_problem(ProblemKind::InvalidUrl(
+                "WARC-Refers-To-Target-URI".to_string(),
+            ));
+        }
     }
 
     fn refers_to_date(&mut self) {
@@ -393,6 +499,10 @@ impl Verifier {
             "continuation",
         ]) {
             self.prohibit_field("WARC-Refers-To-Date");
+        }
+
+        if let Some(Err(_error)) = self.header.fields.get_date("WARC-Refers-To-Date") {
+            self.add_problem(ProblemKind::InvalidDate("WARC-Refers-To-Date".to_string()));
         }
     }
 
@@ -420,6 +530,10 @@ impl Verifier {
             .is_formatted_bad_spec_url("WARC-Target-URI")
         {
             self.add_problem(ProblemKind::BadSpecUri("WARC-Target-URI".to_string()));
+        }
+
+        if let Some(Err(_error)) = self.header.fields.get_url("WARC-Target-URI") {
+            self.add_problem(ProblemKind::InvalidUrl("WARC-Target-URI".to_string()));
         }
     }
 

@@ -240,6 +240,18 @@ impl From<Utf8Error> for ParseError {
     }
 }
 
+impl From<chrono::ParseError> for ParseError {
+    fn from(value: chrono::ParseError) -> Self {
+        ParseError::new(ParseErrorKind::Syntax).with_source(value)
+    }
+}
+
+impl From<url::ParseError> for ParseError {
+    fn from(value: url::ParseError) -> Self {
+        ParseError::new(ParseErrorKind::Syntax).with_source(value)
+    }
+}
+
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ParseErrorKind {

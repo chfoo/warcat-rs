@@ -3,9 +3,13 @@
 //! Some codecs support multistreams which are compressed files concatenated
 //! together. The purpose is to allow fast seeking within a file to a desired
 //! record.
+//!
+//! Zstandard only has minimal support.
 
 // FIXME: For zstd, stopping properly at a frame does not work:
 // https://github.com/gyscos/zstd-rs/issues/15
+// FIXME: Dictionary in zstd requires skippable frames but the library does
+// not support it
 use std::{
     fmt::{Debug, Display},
     io::{BufRead, Read, Write},

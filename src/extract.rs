@@ -48,10 +48,11 @@ impl WarcExtractor {
 
     pub fn read_header(&mut self, header: &WarcHeader) -> Result<(), ParseError> {
         let warc_type = header.fields.get_or_default("WARC-Type");
-        let media_type = header.fields.get_media_type("Content-Type")?;
+        let media_type = header.fields.get_media_type("Content-Type");
         let mut is_http_response = false;
 
         if let Some(media_type) = media_type {
+            let media_type = media_type?;
             is_http_response = media_type.type_ == "application"
                 && media_type.subtype == "http"
                 && media_type
@@ -63,7 +64,7 @@ impl WarcExtractor {
         }
         let url = header
             .fields
-            .get_bad_spec_url("WARC-Target-URI")
+            .get_url_str("WARC-Target-URI")
             .unwrap_or_default();
 
         if warc_type == "response" && is_http_response && !url.is_empty() {
