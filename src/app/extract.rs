@@ -41,8 +41,34 @@ pub fn extract(args: &ExtractCommand) -> anyhow::Result<()> {
                 ReaderEvent::Header {
                     header,
                     record_boundary_position: _,
-                } => extractor.process_header(&header),
-                ReaderEvent::Block { data } => extractor.process_data(data),
+                } => {
+                    let result = extractor.process_header(&header);
+
+                    if args.continue_on_error {
+                        if let Err(error) = result {
+                            let error = anyhow::anyhow!(error);
+                            tracing::error!(?error, "error processing record header");
+                        }
+                    } else {
+                        result?;
+                    }
+
+                    Ok(())
+                }
+                ReaderEvent::Block { data } => {
+                    let result = extractor.process_data(data);
+
+                    if args.continue_on_error {
+                        if let Err(error) = result {
+                            let error = anyhow::anyhow!(error);
+                            tracing::error!(?error, "error processing record block");
+                        }
+                    } else {
+                        result?;
+                    }
+
+                    Ok(())
+                }
             },
             input,
             compression_format,
@@ -75,6 +101,7 @@ impl Extractor {
         }
     }
     fn process_header(&mut self, header: &WarcHeader) -> anyhow::Result<()> {
+        self.extractor.reset();
         self.extractor.read_header(header)?;
 
         if self.extractor.has_content() {
@@ -139,14 +166,21 @@ impl Extractor {
             let is_last_component = iter.peek().is_none();
 
             if is_last_component {
-                target_path.push(component);
+                let mut base_filename = component.to_string();
+
+                if self.extractor.is_truncated() {
+                    base_filename.push(FILENAME_CONFLICT_MARKER);
+                    base_filename.push_str("truncated");
+                }
+
+                target_path.push(&base_filename);
 
                 if target_path.exists() {
                     // File or directory already exists, append a unique ID to the name.
                     target_path.pop();
                     target_path.push(format!(
                         "{}{}{:016x}",
-                        component, FILENAME_CONFLICT_MARKER, conflict_id
+                        base_filename, FILENAME_CONFLICT_MARKER, conflict_id
                     ));
                 }
             } else {

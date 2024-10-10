@@ -25,7 +25,7 @@ If you want to compile the program yourself, set up a [Rust environment](https:/
 Once you have Rust installed, use the cargo build tool:
 
 ```sh
-cargo build --release
+cargo build --features=bin --release
 ```
 
 The program will be placed in the `target` directory.

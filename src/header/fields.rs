@@ -1,4 +1,4 @@
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, net::IpAddr, str::FromStr};
 
 use chrono::{DateTime, FixedOffset};
 use url::Url;
@@ -26,6 +26,9 @@ pub trait FieldsExt {
 
     /// Parse a URL (with the deliminator `<` and `>` removed).
     fn get_url<N: AsRef<str>>(&self, name: N) -> Option<Result<Url, ParseError>>;
+
+    /// Parse an IP address.
+    fn get_ip_addr<N: AsRef<str>>(&self, name: N) -> Option<Result<IpAddr, ParseError>>;
 }
 
 #[derive(Debug, Clone, Default)]
@@ -114,5 +117,10 @@ impl FieldsExt for WarcFields {
         } else {
             None
         }
+    }
+
+    fn get_ip_addr<N: AsRef<str>>(&self, name: N) -> Option<Result<IpAddr, ParseError>> {
+        self.get(name.as_ref())
+            .map(|value| IpAddr::from_str(value).map_err(|error| error.into()))
     }
 }

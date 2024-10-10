@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     digest::{AlgorithmName, Digest, Hasher},
     error::StorageError,
+    extract::WarcExtractor,
     header::{fields::FieldsExt, WarcHeader},
 };
 
@@ -33,8 +34,8 @@ pub enum Check {
     ContentType,
     ConcurrentTo,
     BlockDigest,
-    // PayloadDigest,
-    // IpAddress,
+    PayloadDigest,
+    IpAddress,
     RefersTo,
     RefersToTargetUri,
     RefersToDate,
@@ -55,8 +56,8 @@ impl Check {
             Self::ContentType,
             Self::ConcurrentTo,
             Self::BlockDigest,
-            // Self::PayloadDigest,
-            // Self::IpAddress,
+            Self::PayloadDigest,
+            Self::IpAddress,
             Self::RefersTo,
             Self::RefersToTargetUri,
             Self::RefersToDate,
@@ -85,6 +86,7 @@ pub enum ProblemKind {
     InvalidUrl(String),
     InvalidIpAddress(String),
     InvalidMediaType(String),
+    InvalidTruncatedReason,
     InvalidSegment,
     MissingSegment(u64),
     MismatchedSegmentLength {
@@ -96,6 +98,12 @@ pub enum ProblemKind {
         expected: String,
         actual: String,
     },
+    PayloadDigestMismatch {
+        algorithm: String,
+        expected: String,
+        actual: String,
+    },
+    ParsePayload(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,6 +131,10 @@ pub struct Verifier {
     header: WarcHeader,
     digests: HashMap<AlgorithmName, Digest>,
     hashers: Vec<Hasher>,
+    payload_extractor: Option<WarcExtractor>,
+    payload_extractor_buf: Vec<u8>,
+    payload_digests: HashMap<AlgorithmName, Digest>,
+    payload_hashers: Vec<Hasher>,
 }
 
 impl Verifier {
@@ -158,6 +170,10 @@ impl Verifier {
             header: WarcHeader::empty(),
             digests: HashMap::new(),
             hashers: Vec::new(),
+            payload_extractor: None,
+            payload_extractor_buf: Vec::new(),
+            payload_digests: HashMap::new(),
+            payload_hashers: Vec::new(),
         })
     }
 
@@ -184,6 +200,9 @@ impl Verifier {
         self.header = header.clone();
         self.digests.clear();
         self.hashers.clear();
+        self.payload_extractor = None;
+        self.payload_digests.clear();
+        self.payload_hashers.clear();
 
         self.process_header()?;
 
@@ -343,6 +362,9 @@ impl Verifier {
         if self.checks.contains(&Check::ConcurrentTo) {
             self.concurrent_to()?;
         }
+        if self.checks.contains(&Check::IpAddress) {
+            self.ip_address();
+        }
         if self.checks.contains(&Check::RefersTo) {
             self.refers_to()?;
         }
@@ -354,6 +376,9 @@ impl Verifier {
         }
         if self.checks.contains(&Check::TargetUri) {
             self.target_uri();
+        }
+        if self.checks.contains(&Check::Truncated) {
+            self.truncated();
         }
         if self.checks.contains(&Check::WarcinfoId) {
             self.warcinfo_id()?;
@@ -369,6 +394,9 @@ impl Verifier {
         }
         if self.checks.contains(&Check::BlockDigest) {
             self.block_digest();
+        }
+        if self.checks.contains(&Check::PayloadDigest) {
+            self.payload_digest();
         }
 
         let txn = self.db.begin_write()?;
@@ -434,6 +462,18 @@ impl Verifier {
         txn.commit()?;
 
         Ok(())
+    }
+
+    fn ip_address(&mut self) {
+        tracing::trace!("check ip-address");
+
+        if self.is_any_record_type(&["warcinfo", "conversion", "continuation"]) {
+            self.prohibit_field("WARC-IP-Address");
+        }
+
+        if let Some(Err(_error)) = self.header.fields.get_ip_addr("WARC-IP-Address") {
+            self.add_problem(ProblemKind::InvalidIpAddress("WARC-IP-Address".to_string()));
+        }
     }
 
     fn refers_to(&mut self) -> Result<(), StorageError> {
@@ -534,6 +574,16 @@ impl Verifier {
 
         if let Some(Err(_error)) = self.header.fields.get_url("WARC-Target-URI") {
             self.add_problem(ProblemKind::InvalidUrl("WARC-Target-URI".to_string()));
+        }
+    }
+
+    fn truncated(&mut self) {
+        tracing::trace!("check truncated");
+
+        if let Some(reason) = self.header.fields.get("WARC-Truncated") {
+            if !["length", "time", "disconnect", "unspecified"].contains(&reason.as_str()) {
+                self.add_problem(ProblemKind::InvalidTruncatedReason);
+            }
         }
     }
 
@@ -688,8 +738,34 @@ impl Verifier {
         for kind in pending_problems.into_iter() {
             self.add_problem(kind);
         }
+    }
 
-        // TODO: support WARC-Payload-Digest
+    fn payload_digest(&mut self) {
+        tracing::trace!("check payload-digest");
+
+        if self.header.fields.contains_name("WARC-Payload-Digest") {
+            let mut extractor = WarcExtractor::new();
+            if let Err(error) = extractor.read_header(&self.header) {
+                self.add_problem(ProblemKind::ParsePayload(error.to_string()));
+
+                return;
+            }
+            self.payload_extractor = Some(extractor);
+        }
+
+        let mut pending_problems = Vec::new();
+
+        for value in self.header.fields.get_all("WARC-Payload-Digest") {
+            if let Ok(digest) = Digest::from_str(value) {
+                self.payload_digests.insert(digest.algorithm(), digest);
+            } else {
+                pending_problems.push(ProblemKind::UnknownDigest(value.to_string()));
+            }
+        }
+
+        for kind in pending_problems.into_iter() {
+            self.add_problem(kind);
+        }
     }
 
     /// Process the block data of a record.
@@ -699,6 +775,25 @@ impl Verifier {
     pub fn block_data(&mut self, data: &[u8]) {
         for hasher in &mut self.hashers {
             hasher.update(data);
+        }
+
+        let mut payload_extractor_error = false;
+        if let Some(extractor) = &mut self.payload_extractor {
+            let result = extractor.extract_data(data, &mut self.payload_extractor_buf);
+
+            if let Err(error) = result {
+                self.add_problem(ProblemKind::ParsePayload(error.to_string()));
+                payload_extractor_error = true;
+            }
+
+            for hasher in &mut self.payload_hashers {
+                hasher.update(&self.payload_extractor_buf);
+            }
+            self.payload_extractor_buf.clear();
+        }
+
+        if payload_extractor_error {
+            self.payload_extractor = None
         }
     }
 
@@ -723,6 +818,24 @@ impl Verifier {
         }
 
         self.hashers = hashers;
+
+        let mut payload_hashers = std::mem::take(&mut self.payload_hashers);
+
+        for hasher in &mut payload_hashers {
+            let value = hasher.finish();
+
+            let digest = self.digests.get(&hasher.algorithm()).unwrap();
+
+            if digest.value() != value {
+                self.add_problem(ProblemKind::PayloadDigestMismatch {
+                    algorithm: hasher.algorithm().to_string(),
+                    expected: HEXLOWER.encode(digest.value()),
+                    actual: HEXLOWER.encode(&value),
+                });
+            }
+        }
+
+        self.payload_hashers = payload_hashers;
     }
 }
 

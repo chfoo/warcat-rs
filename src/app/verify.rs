@@ -17,7 +17,12 @@ pub fn verify(args: &VerifyCommand) -> anyhow::Result<ExitCode> {
 
     let mut writer = SeqWriter::new(output, seq_format);
     let mut problem_count = 0u64;
-    let verifier = Rc::new(RefCell::new(Verifier::new()));
+    let verifier = if let Some(path) = &args.database {
+        Verifier::open(path)?
+    } else {
+        Verifier::new()
+    };
+    let verifier = Rc::new(RefCell::new(verifier));
 
     for input_path in &args.input {
         let span = tracing::info_span!("verify", path = ?input_path);

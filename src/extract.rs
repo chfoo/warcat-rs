@@ -5,12 +5,9 @@
 
 use std::{borrow::Cow, io::Write};
 
-use crate::error::GeneralError;
+use crate::error::{GeneralError, ProtocolError, ProtocolErrorKind};
+use crate::header::{fields::FieldsExt, WarcHeader};
 use crate::http::h1::recv::{Receiver as HttpDecoder, ReceiverEvent};
-use crate::{
-    error::ParseError,
-    header::{fields::FieldsExt, WarcHeader},
-};
 
 pub const FILENAME_CONFLICT_MARKER: char = '⬧';
 
@@ -29,11 +26,23 @@ enum Decoder {
     Http(HttpDecoder),
 }
 
-/// Extracts content from a WARC record
+/// Extracts content from a WARC record.
+///
+/// Supported content:
+///
+/// * HTTP responses
+/// * Resources
+/// * Conversions
+/// * Records marked as truncated
+///
+/// Unsupported content:
+///
+/// * Content stored in segmented records
 #[derive(Debug)]
 pub struct WarcExtractor {
     state: State,
     decoder: Decoder,
+    is_truncated: bool,
     output_path: Vec<String>,
 }
 
@@ -42,13 +51,26 @@ impl WarcExtractor {
         Self {
             state: State::None,
             decoder: Decoder::None,
+            is_truncated: false,
             output_path: Vec::new(),
         }
     }
 
-    pub fn read_header(&mut self, header: &WarcHeader) -> Result<(), ParseError> {
+    pub fn reset(&mut self) {
+        self.state = State::None;
+        self.decoder = Decoder::None;
+        self.is_truncated = false;
+        self.output_path.clear();
+    }
+
+    pub fn read_header(&mut self, header: &WarcHeader) -> Result<(), GeneralError> {
+        if header.fields.contains_name("WARC-Segment-Number") {
+            return Err(ProtocolError::new(ProtocolErrorKind::UnsupportedSegmentedRecord).into());
+        }
+
         let warc_type = header.fields.get_or_default("WARC-Type");
         let media_type = header.fields.get_media_type("Content-Type");
+        self.is_truncated = header.fields.contains_name("WARC-Truncated");
         let mut is_http_response = false;
 
         if let Some(media_type) = media_type {
@@ -90,12 +112,20 @@ impl WarcExtractor {
         Ok(())
     }
 
+    /// Returns whether the record has supported extractable contents.
     pub fn has_content(&self) -> bool {
         self.state != State::None
     }
 
+    /// Returns file components suitable safe for saving to a filesystem for
+    /// most operating systems (Windows and Unix).
     pub fn file_path_components(&self) -> Vec<String> {
         self.output_path.clone()
+    }
+
+    /// Returns whether the record is marked as not containing a complete file.
+    pub fn is_truncated(&self) -> bool {
+        self.is_truncated
     }
 
     pub fn extract_data<W: Write>(

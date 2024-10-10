@@ -252,6 +252,12 @@ impl From<url::ParseError> for ParseError {
     }
 }
 
+impl From<std::net::AddrParseError> for ParseError {
+    fn from(value: std::net::AddrParseError) -> Self {
+        ParseError::new(ParseErrorKind::Syntax).with_source(value)
+    }
+}
+
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ParseErrorKind {
@@ -334,6 +340,7 @@ pub enum ProtocolErrorKind {
     InvalidChunkedEncoding,
     UnsupportedDigest,
     InvalidBaseEncodedValue,
+    UnsupportedSegmentedRecord,
     AmbiguousSpecification,
     Other,
 }
@@ -353,6 +360,7 @@ impl Display for ProtocolErrorKind {
             Self::InvalidChunkedEncoding => "invalid chunked encoding",
             Self::UnsupportedDigest => "unsupported digest",
             Self::InvalidBaseEncodedValue => "invalid base encoded value",
+            Self::UnsupportedSegmentedRecord => "unsupported segmented record",
             Self::AmbiguousSpecification => "ambiguous specification",
             Self::Other => "other",
         };

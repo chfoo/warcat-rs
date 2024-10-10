@@ -9,7 +9,7 @@ Set up a [Rust environment](https://www.rust-lang.org/tools/install). The latest
 Once you have Rust installed, use the cargo build tool:
 
 ```sh
-cargo build --release
+cargo build --features=bin --release
 ```
 
 The program will be placed in the `target` directory. You can run it as is, or install it by adding a "-installer" suffix to the filename before running it.

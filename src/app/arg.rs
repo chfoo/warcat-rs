@@ -140,6 +140,10 @@ pub struct ExtractCommand {
     /// Path to the output directory.
     #[clap(long, default_value = "./")]
     pub output: PathBuf,
+
+    /// Whether to ignore errors.
+    #[clap(long)]
+    pub continue_on_error: bool,
 }
 
 /// Perform specification and integrity checks on WARC files.
@@ -164,6 +168,9 @@ pub struct VerifyCommand {
     /// Do not perform check.
     #[clap(long, value_delimiter = ',')]
     pub exclude_check: Vec<VerifyCheck>,
+
+    /// Database filename for storing temporary intermediate data.
+    pub database: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -173,8 +180,8 @@ pub enum VerifyCheck {
     ContentType,
     ConcurrentTo,
     BlockDigest,
-    // PayloadDigest,
-    // IpAddress,
+    PayloadDigest,
+    IpAddress,
     RefersTo,
     RefersToTargetUri,
     RefersToDate,
@@ -195,8 +202,8 @@ impl From<VerifyCheck> for Check {
             VerifyCheck::ContentType => Self::ContentType,
             VerifyCheck::ConcurrentTo => Self::ConcurrentTo,
             VerifyCheck::BlockDigest => Self::BlockDigest,
-            // VerifyCheck::PayloadDigest => Self::PayloadDigest,
-            // VerifyCheck::IpAddress => Self::IpAddress,
+            VerifyCheck::PayloadDigest => Self::PayloadDigest,
+            VerifyCheck::IpAddress => Self::IpAddress,
             VerifyCheck::RefersTo => Self::RefersTo,
             VerifyCheck::RefersToTargetUri => Self::RefersToTargetUri,
             VerifyCheck::RefersToDate => Self::RefersToDate,
