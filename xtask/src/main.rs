@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 
 mod doc;
+mod package;
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -13,6 +14,7 @@ struct Args {
 pub enum Command {
     BuildDoc,
     GenCliDoc,
+    PackageBin { target: String },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -21,5 +23,6 @@ fn main() -> anyhow::Result<()> {
     match args.command {
         Command::BuildDoc => crate::doc::build_doc(),
         Command::GenCliDoc => crate::doc::gen_cli_doc(),
+        Command::PackageBin { target } => crate::package::package_bin(&target),
     }
 }

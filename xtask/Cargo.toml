@@ -6,6 +6,5 @@ publish = false
 
 [dependencies]
 anyhow = "1.0.86"
+cargo_metadata = "0.18.1"
 clap = { version = "4.5.16", features = ["derive"] }
-clap-markdown = "0.1.4"
-warcat = { path = "../", features = ["bin"] }

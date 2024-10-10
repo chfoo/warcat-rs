@@ -209,6 +209,7 @@ impl<W: Write> Debug for Encoder<W> {
             Self::Deflate(_arg0) => f.debug_tuple("Deflate").finish(),
             Self::Gzip(_arg0) => f.debug_tuple("Gzip").finish(),
             Self::Brotli(_arg0) => f.debug_tuple("Brotli").finish(),
+            #[cfg(feature = "zstd")]
             Self::Zstandard(_arg0) => f.debug_tuple("Zstandard").finish(),
             Self::None => write!(f, "None"),
         }

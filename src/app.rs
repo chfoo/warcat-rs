@@ -5,11 +5,9 @@ use clap::Parser;
 use self::arg::Args;
 use self::arg::Command;
 
-// pub access for generating CLI documentation using xtask
-#[doc(hidden)]
-pub mod arg;
-
+mod arg;
 mod common;
+mod dump_help;
 mod export;
 mod extract;
 mod format;
@@ -67,6 +65,10 @@ fn run_impl() -> anyhow::Result<ExitCode> {
         Command::Verify(args) => self::verify::verify(&args)?,
         Command::Self_(args) => {
             self::self_::self_(&args)?;
+            ExitCode::SUCCESS
+        }
+        Command::DumpHelp => {
+            self::dump_help::dump_help()?;
             ExitCode::SUCCESS
         }
     };

@@ -41,6 +41,8 @@ pub enum Command {
     Extract(ExtractCommand),
     Verify(VerifyCommand),
     Self_(SelfCommand),
+    #[command(hide(true))]
+    DumpHelp,
 }
 
 /// Decodes a WARC file to messages in a easier-to-process format such as JSON.
