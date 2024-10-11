@@ -145,7 +145,8 @@ impl Packager {
         let mut file = NamedTempFile::new()?;
 
         let content = std::fs::read_to_string("xtask/src/dist_license.txt")?;
-        let (_header, content) = content.split_once("</>\n").unwrap();
+        let (_header, content) = content.split_once("</>").expect("missing license template header");
+        let content = content.trim_ascii_start();
 
         file.write_all(content.as_bytes())?;
         file.flush()?;

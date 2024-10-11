@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
 mod doc;
+#[cfg(feature = "bloat")]
 mod gh;
 mod license;
 mod package;
@@ -40,7 +41,18 @@ fn main() -> anyhow::Result<()> {
         Command::DownloadArtifacts {
             access_token,
             workflow_id,
-        } => crate::gh::download_artifacts(&access_token, &workflow_id),
+        } => {
+            #[cfg(feature = "bloat")]
+            {
+                crate::gh::download_artifacts(&access_token, &workflow_id)
+            }
+            #[cfg(not(feature = "bloat"))]
+            {
+                let _ = access_token;
+                let _ = workflow_id;
+                unimplemented!("feature 'bloat' required")
+            }
+        }
         Command::GenLicense => crate::license::generate_license_file(),
     }
 }
