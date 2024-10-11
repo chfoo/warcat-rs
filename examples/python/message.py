@@ -1,8 +1,10 @@
+# This is a helper module that assists and in encoding/decoding JSON messages from warcat.
 import json
 import base64
 import io
 
 
+# Represents the Metadata message.
 class Metadata:
     file: str
     position: int
@@ -23,6 +25,7 @@ class Metadata:
         }
 
 
+# Represents the Header message.
 class Header:
     version: str
     fields: list
@@ -43,6 +46,7 @@ class Header:
         }
 
 
+# Represents the BlockChunk message.
 class BlockChunk:
     data: bytes
 
@@ -56,6 +60,7 @@ class BlockChunk:
         return {"BlockChunk": {"data": base64.b64encode(self.data).decode("utf8")}}
 
 
+# Represents the BlockEnd message.
 class BlockEnd:
     crc32c: int
 
@@ -97,6 +102,7 @@ def message_object_hook(obj: dict):
     return obj
 
 
+# Write a message as a line of JSON to the given stream.
 def encode(stream: io.BufferedIOBase, message):
     data = MessageEncoder().encode(message).encode("utf8")
 
@@ -104,6 +110,8 @@ def encode(stream: io.BufferedIOBase, message):
     stream.write(b"\n")
 
 
+# A generator that produces messages by reading lines containing JSON from
+# the given stream.
 def decode(stream: io.BufferedIOBase):
     for line in stream.readlines():
         segment = line.decode("utf8")

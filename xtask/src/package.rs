@@ -113,10 +113,10 @@ impl Packager {
 
         for (from, to) in [
             (source_bin_path.as_path(), dest_bin_path.as_path()),
-            (license_file.path(), &content_dir.join("LICENSE.txt")),
+            (license_file.path(), &content_dir.join("license.txt")),
             (
                 Path::new("xtask/src/dist_readme.txt"),
-                &content_dir.join("README.txt"),
+                &content_dir.join("readme.txt"),
             ),
         ] {
             eprintln!("Copying {:?} -> {:?}", from, to);
