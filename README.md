@@ -4,8 +4,6 @@ Command-line tool and Rust library for handling Web ARChive (WARC) files.
 
 This project is a rewrite of the [warcat](https://github.com/chfoo/warcat/) project.
 
-*Work in progress. There may be no downloads/releases yet.*
-
 ## Getting started
 
 * [💿 Downloads](https://github.com/chfoo/warcat-rs/releases)

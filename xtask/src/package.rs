@@ -1,8 +1,11 @@
 use std::{
     env::consts::EXE_SUFFIX,
+    io::Write,
     path::{Path, PathBuf},
     process::Command,
 };
+
+use tempfile::NamedTempFile;
 
 pub fn package_bin(target_triple: &str) -> anyhow::Result<()> {
     let packager = Packager::new(target_triple.to_string());
@@ -106,11 +109,15 @@ impl Packager {
             .join(format!("warcat{}", EXE_SUFFIX));
 
         let dest_bin_path = content_dir.join(format!("warcat-{}-installer{}", version, EXE_SUFFIX));
+        let license_file = self.license_file()?;
 
         for (from, to) in [
             (source_bin_path.as_path(), dest_bin_path.as_path()),
-            (Path::new("LICENSE.txt"), &content_dir.join("LICENSE.txt")),
-            (Path::new("README.md"), &content_dir.join("README.txt")),
+            (license_file.path(), &content_dir.join("LICENSE.txt")),
+            (
+                Path::new("xtask/src/dist_readme.txt"),
+                &content_dir.join("README.txt"),
+            ),
         ] {
             eprintln!("Copying {:?} -> {:?}", from, to);
             std::fs::copy(from, to)?;
@@ -133,6 +140,18 @@ impl Packager {
 
         Ok(output_dir)
     }
+
+    fn license_file(&self) -> anyhow::Result<NamedTempFile> {
+        let mut file = NamedTempFile::new()?;
+
+        let content = std::fs::read_to_string("xtask/src/dist_license.txt")?;
+        let (_header, content) = content.split_once("</>\n").unwrap();
+
+        file.write_all(content.as_bytes())?;
+        file.flush()?;
+
+        Ok(file)
+    }
 }
 
 fn target_triple_to_friendly_name(target_triple: &str) -> &str {
@@ -147,7 +166,7 @@ fn target_triple_to_friendly_name(target_triple: &str) -> &str {
     }
 }
 
-fn target_dir() -> anyhow::Result<PathBuf> {
+pub fn target_dir() -> anyhow::Result<PathBuf> {
     let metadata = cargo_metadata::MetadataCommand::new().exec()?;
     Ok(metadata.target_directory.into_std_path_buf())
 }
