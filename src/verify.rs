@@ -729,6 +729,7 @@ impl Verifier {
 
         for value in self.header.fields.get_all("WARC-Block-Digest") {
             if let Ok(digest) = Digest::from_str(value) {
+                self.hashers.push(Hasher::new(digest.algorithm()));
                 self.digests.insert(digest.algorithm(), digest);
             } else {
                 pending_problems.push(ProblemKind::UnknownDigest(value.to_string()));
@@ -757,6 +758,7 @@ impl Verifier {
 
         for value in self.header.fields.get_all("WARC-Payload-Digest") {
             if let Ok(digest) = Digest::from_str(value) {
+                self.payload_hashers.push(Hasher::new(digest.algorithm()));
                 self.payload_digests.insert(digest.algorithm(), digest);
             } else {
                 pending_problems.push(ProblemKind::UnknownDigest(value.to_string()));
@@ -824,7 +826,7 @@ impl Verifier {
         for hasher in &mut payload_hashers {
             let value = hasher.finish();
 
-            let digest = self.digests.get(&hasher.algorithm()).unwrap();
+            let digest = self.payload_digests.get(&hasher.algorithm()).unwrap();
 
             if digest.value() != value {
                 self.add_problem(ProblemKind::PayloadDigestMismatch {

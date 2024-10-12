@@ -91,6 +91,7 @@ impl FromStr for AlgorithmName {
 /// Data structure for a hash digest value and the algorithm that produced it.
 ///
 /// Corresponds to the format in the WARC-Block-Digest field.
+#[derive(Debug, Clone)]
 pub struct Digest {
     algorithm: AlgorithmName,
     value: Vec<u8>,
