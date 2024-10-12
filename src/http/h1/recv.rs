@@ -205,9 +205,11 @@ impl Receiver {
             );
 
             Ok(ReceiverEvent::Body(&self.output_buf))
-        } else {
+        } else if self.current_body >= content_length {
             self.state = State::End;
             Ok(ReceiverEvent::End)
+        } else {
+            Ok(ReceiverEvent::WantData)
         }
     }
 
@@ -300,6 +302,46 @@ mod tests {
     #[tracing_test::traced_test]
     #[test]
     fn test_receiver_content_length() {
+        let mut receiver = Receiver::new();
+        receiver.recv_data(
+            b"HTTP/1.1 200 OK\r\n\
+            Content-Length: 10000\r\n\
+            \r\n",
+        );
+
+        let mut remain_bytes = 10000;
+        let mut output = Vec::new();
+
+        loop {
+            let event = receiver.get_event().unwrap();
+
+            match event {
+                ReceiverEvent::WantData => {
+                    if remain_bytes > 0 {
+                        receiver.recv_data(b"aaaaa");
+                        remain_bytes -= 5;
+                    } else {
+                        break;
+                    }
+                }
+                ReceiverEvent::Header(message_header) => {
+                    let line = message_header.start_line.as_status().unwrap();
+                    assert_eq!(line.status_code, 200);
+                }
+                ReceiverEvent::Body(data) => {
+                    output.extend_from_slice(data);
+                }
+                ReceiverEvent::Trailer(_field_map) => unreachable!(),
+                ReceiverEvent::End => break,
+            }
+        }
+
+        assert_eq!(&output, &[b'a';10000]);
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    fn test_receiver_content_length_multi_message() {
         let mut receiver = Receiver::new();
         receiver.recv_data(
             b"HTTP/1.1 200 OK\r\n\

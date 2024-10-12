@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+* Fixed: HTTP decoder (and Extract command) incorrectly truncated data with Content-Length.
 * Fixed: Verify functionality: block and payload digest checks were not functional.
 * Added: filter options for Extract command.
 * Added: extract option for Export command.
