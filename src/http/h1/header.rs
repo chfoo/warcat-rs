@@ -347,4 +347,19 @@ mod tests {
         header.serialize(&mut buf).unwrap();
         assert_eq!(buf, data.as_bytes());
     }
+
+    #[test]
+    fn test_header_parse_other_names() {
+        let data = "http/1.1 200 OK\r\n\
+            Server: example.com\r\n\r\n";
+        let header = MessageHeader::parse(data.as_bytes()).unwrap();
+
+        let status_line = header.start_line.as_status().unwrap();
+        assert_eq!(status_line.status_code, 200);
+
+        let data = "ICY 200 OK\r\n\
+        abc: 123\r\n\r\n";
+        let result = MessageHeader::parse(data.as_bytes());
+        assert!(result.is_err());
+    }
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+* Fixed: false positive Payload Digest problem during verify for "revisit" records.
+
 ## 0.2.0 (2024-10-12)
 
 * Fixed: HTTP decoder (and Extract command) incorrectly truncated data with Content-Length.

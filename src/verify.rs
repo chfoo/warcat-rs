@@ -751,7 +751,12 @@ impl Verifier {
 
                 return;
             }
-            self.payload_extractor = Some(extractor);
+
+            if extractor.has_content() {
+                self.payload_extractor = Some(extractor);
+            } else {
+                return;
+            }
         }
 
         let mut pending_problems = Vec::new();

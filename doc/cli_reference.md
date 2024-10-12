@@ -74,6 +74,8 @@ Decodes a WARC file to messages in a easier-to-process format such as JSON
   - `cbor-seq`:
     CBOR sequences (RFC 8742)
 
+* `--no-block` — Do not output block messages
+* `--extract` — Output extract messages
 
 
 
@@ -211,6 +213,18 @@ This operation does not automatically permit offline viewing of archived website
 
   Default value: `./`
 * `--continue-on-error` — Whether to ignore errors
+* `--include <INCLUDE>` — Select only records with a field.
+
+   Rule format is "NAME" or "NAME:VALUE".
+* `--include-pattern <INCLUDE_PATTERN>` — Select only records matching a regular expression.
+
+   Rule format is "NAME:VALUEPATTERN".
+* `--exclude <EXCLUDE>` — Do not select records with a field.
+
+   Rule format is "NAME" or "NAME:VALUE".
+* `--exclude-pattern <EXCLUDE_PATTERN>` — Do not select records matching a regular expression.
+
+   Rule format is "NAME:VALUEPATTERN".
 
 
 

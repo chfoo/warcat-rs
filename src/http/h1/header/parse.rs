@@ -1,6 +1,6 @@
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_while, take_while1},
+    bytes::complete::{tag, tag_no_case, take_while, take_while1},
     character::complete::{digit1, line_ending},
     combinator::{map, recognize, verify},
     sequence::{terminated, tuple},
@@ -72,8 +72,10 @@ fn request_target(input: &[u8]) -> IResult<&[u8], &[u8]> {
 }
 
 fn http_version(input: &[u8]) -> IResult<&[u8], &[u8]> {
+    // Newer HTTP specifications requires the http-name to be case-sensitive,
+    // but we should be lenient instead.
     recognize(tuple((
-        tag(b"HTTP"),
+        tag_no_case(b"HTTP"),
         tag(b"/"),
         one_digit,
         tag(b"."),
