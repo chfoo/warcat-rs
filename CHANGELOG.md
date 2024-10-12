@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2024-10-12)
 
 * Fixed: HTTP decoder (and Extract command) incorrectly truncated data with Content-Length.
 * Fixed: Verify functionality: block and payload digest checks were not functional.
