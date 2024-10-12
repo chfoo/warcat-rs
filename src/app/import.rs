@@ -122,7 +122,7 @@ impl Importer {
         match state {
             State::Header(writer) => match message {
                 WarcMessage::Header(header) => self.process_header(writer, header),
-                WarcMessage::EndOfFile => self.process_eof(writer),
+                WarcMessage::EndOfFile(_) => self.process_eof(writer),
                 WarcMessage::Metadata(_) => {
                     self.state = State::Header(writer);
                     Ok(())

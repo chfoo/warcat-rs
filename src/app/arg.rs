@@ -63,6 +63,14 @@ pub struct ExportCommand {
     /// Format for the output messages.
     #[clap(long, default_value = "json-seq")]
     pub format: SerializationFormat,
+
+    /// Do not output block messages.
+    #[clap(long)]
+    pub no_block: bool,
+
+    /// Output extract messages.
+    #[clap(long)]
+    pub extract: bool,
 }
 
 /// Encodes a WARC file from messages in a format of the `export` subcommand.
@@ -146,6 +154,30 @@ pub struct ExtractCommand {
     /// Whether to ignore errors.
     #[clap(long)]
     pub continue_on_error: bool,
+
+    /// Select only records with a field.
+    ///
+    /// Rule format is "NAME" or "NAME:VALUE".
+    #[clap(long)]
+    pub include: Vec<String>,
+
+    /// Select only records matching a regular expression.
+    ///
+    /// Rule format is "NAME:VALUEPATTERN".
+    #[clap(long)]
+    pub include_pattern: Vec<String>,
+
+    /// Do not select records with a field.
+    ///
+    /// Rule format is "NAME" or "NAME:VALUE".
+    #[clap(long)]
+    pub exclude: Vec<String>,
+
+    /// Do not select records matching a regular expression.
+    ///
+    /// Rule format is "NAME:VALUEPATTERN".
+    #[clap(long)]
+    pub exclude_pattern: Vec<String>,
 }
 
 /// Perform specification and integrity checks on WARC files.

@@ -11,7 +11,15 @@ def main():
     # In your code, do not use "cargo",
     # use ["warcat", "import", ... ]
     with subprocess.Popen(
-        ["cargo", "run", "--", "import", "--compression=none", "--format=jsonl"],
+        [
+            "cargo",
+            "run",
+            "--features=bin",
+            "--",
+            "import",
+            "--compression=none",
+            "--format=jsonl",
+        ],
         stdin=subprocess.PIPE,
     ) as process:
         # Write a record header with the given header fields.
@@ -37,6 +45,9 @@ def main():
         # Write the end of the block message.
         block_end = message.BlockEnd(checksum)
         message.encode(process.stdin, block_end)
+
+        # Finish writing the file.
+        message.encode(process.stdin, message.EndOfFile())
 
 
 if __name__ == "__main__":

@@ -78,11 +78,24 @@ class BlockEnd:
         }
 
 
+# Represents the EndOfFile message
+class EndOfFile:
+    def __init__(self):
+        pass
+
+    def deserialize():
+        return EndOfFile()
+
+    def serialize(self) -> dict:
+        return {"EndOfFile": {}}
+
+
 MESSAGE_TABLE = {
     "Metadata": Metadata,
     "Header": Header,
     "BlockChunk": BlockChunk,
     "BlockEnd": BlockEnd,
+    "EndOfFile": EndOfFile,
 }
 
 

@@ -12,12 +12,31 @@ use crate::{
     header::WarcHeader,
 };
 
-use super::arg::ExtractCommand;
+use super::{arg::ExtractCommand, filter::FieldFilter};
 
 // FIXME: continuation records not yet implemented.
 
 pub fn extract(args: &ExtractCommand) -> anyhow::Result<()> {
     let output_dir = &args.output;
+
+    if !output_dir.is_dir() {
+        anyhow::bail!("not a directory: {:?}", output_dir)
+    }
+
+    let mut filter = FieldFilter::new();
+
+    for rule in &args.include {
+        filter.add_include(rule);
+    }
+    for rule in &args.include_pattern {
+        filter.add_include_pattern(rule)?;
+    }
+    for rule in &args.exclude {
+        filter.add_exclude(rule);
+    }
+    for rule in &args.exclude_pattern {
+        filter.add_exclude_pattern(rule)?;
+    }
 
     for input_path in &args.input {
         let span = tracing::info_span!("extract", path = ?input_path);
@@ -25,16 +44,12 @@ pub fn extract(args: &ExtractCommand) -> anyhow::Result<()> {
 
         let input = super::common::open_input(input_path)?;
 
-        if !output_dir.is_dir() {
-            anyhow::bail!("not a directory: {:?}", output_dir)
-        }
-
         tracing::info!("opened file");
 
         let compression_format = args.compression.try_into_native(input_path)?;
         let file_len = std::fs::metadata(input_path).map(|m| m.len()).ok();
 
-        let mut extractor = Extractor::new(output_dir);
+        let mut extractor = Extractor::new(output_dir, filter.clone());
 
         ReaderPipeline::new(
             |event| match event {
@@ -88,20 +103,28 @@ struct Extractor {
     buf: Vec<u8>,
     hasher: xxhash_rust::xxh3::Xxh3Default,
     output_dir: PathBuf,
+    filter: FieldFilter,
 }
 
 impl Extractor {
-    fn new<P: Into<PathBuf>>(output_dir: P) -> Self {
+    fn new<P: Into<PathBuf>>(output_dir: P, filter: FieldFilter) -> Self {
         Self {
             output_dir: output_dir.into(),
+            filter,
             extractor: WarcExtractor::new(),
             buf: Vec::new(),
             hasher: xxhash_rust::xxh3::Xxh3Default::new(),
             file: None,
         }
     }
+
     fn process_header(&mut self, header: &WarcHeader) -> anyhow::Result<()> {
         self.extractor.reset();
+
+        if !self.filter.is_allow(header) {
+            return Ok(());
+        }
+
         self.extractor.read_header(header)?;
 
         if self.extractor.has_content() {

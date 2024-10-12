@@ -13,6 +13,7 @@ def main():
         [
             "cargo",
             "run",
+            "--features=bin",
             "--",
             "export",
             "--input=examples/example.warc",

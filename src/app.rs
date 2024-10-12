@@ -10,6 +10,7 @@ mod common;
 mod dump_help;
 mod export;
 mod extract;
+mod filter;
 mod format;
 mod import;
 mod io;

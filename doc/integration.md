@@ -45,7 +45,7 @@ Next, get the record block data:
 
 ```
 message_line <- process.stdout.read_line()
-message = decode_json(message_line)
+message <- decode_json(message_line)
 
 loop do
     if message.has_key("BlockEnd") then
@@ -60,4 +60,10 @@ loop do
 end loop
 ```
 
-Once you have read the end of the record, repeat the steps for each record until standard out produces no more output.
+Once you have read the end of the record, repeat the steps for each record until the end of file message is reached:
+
+```
+message_line <- process.stdout.read_line()
+message <- decode_json(message_line)
+is_end_of_file <- message.has_key("EndOfFile")
+```
