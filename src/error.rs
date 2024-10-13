@@ -328,6 +328,7 @@ impl From<ProtocolErrorKind> for ProtocolError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ProtocolErrorKind {
+    IoNotSeekable,
     HeaderTooBig,
     MissingContentLength,
     ContentLengthMismatch,
@@ -341,6 +342,8 @@ pub enum ProtocolErrorKind {
     UnsupportedDigest,
     InvalidBaseEncodedValue,
     UnsupportedSegmentedRecord,
+    NotFound,
+    NoContent,
     AmbiguousSpecification,
     Other,
 }
@@ -348,6 +351,7 @@ pub enum ProtocolErrorKind {
 impl Display for ProtocolErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let value = match self {
+            Self::IoNotSeekable => "input/output not seekable",
             Self::HeaderTooBig => "header too big",
             Self::MissingContentLength => "missing content length",
             Self::ContentLengthMismatch => "content length mismatch",
@@ -361,6 +365,8 @@ impl Display for ProtocolErrorKind {
             Self::UnsupportedDigest => "unsupported digest",
             Self::InvalidBaseEncodedValue => "invalid base encoded value",
             Self::UnsupportedSegmentedRecord => "unsupported segmented record",
+            Self::NotFound => "not found",
+            Self::NoContent => "no content",
             Self::AmbiguousSpecification => "ambiguous specification",
             Self::Other => "other",
         };

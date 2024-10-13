@@ -1,8 +1,10 @@
 use std::{
     fs::File,
-    io::{Read, Stdin, Stdout, Write},
+    io::{Read, Seek, Stdin, Stdout, Write},
     path::Path,
 };
+
+use crate::error::{GeneralError, ProtocolError, ProtocolErrorKind};
 
 #[derive(Debug)]
 pub enum ProgramInput {
@@ -19,6 +21,18 @@ impl ProgramInput {
         } else {
             let file = File::options().read(true).open(path)?;
             Ok(Self::File(file))
+        }
+    }
+
+    pub fn seek_absolute(&mut self, position: u64) -> Result<(), GeneralError> {
+        match self {
+            ProgramInput::File(file) => {
+                file.seek(std::io::SeekFrom::Start(position))?;
+                Ok(())
+            }
+            ProgramInput::Stdin(_stdin) => {
+                Err(ProtocolError::new(ProtocolErrorKind::IoNotSeekable).into())
+            }
         }
     }
 }

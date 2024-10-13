@@ -12,6 +12,7 @@ mod export;
 mod extract;
 mod filter;
 mod format;
+mod get;
 mod import;
 mod io;
 mod list;
@@ -57,6 +58,10 @@ fn run_impl() -> anyhow::Result<ExitCode> {
         }
         Command::List(args) => {
             self::list::list(&args)?;
+            ExitCode::SUCCESS
+        }
+        Command::Get(args) => {
+            self::get::get(&args)?;
             ExitCode::SUCCESS
         }
         Command::Extract(args) => {

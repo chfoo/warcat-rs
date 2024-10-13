@@ -3,6 +3,7 @@
 ## Unreleased
 
 * Fixed: false positive Payload Digest problem during verify for "revisit" records.
+* Added: Get command for exporting/extracting single records.
 
 ## 0.2.0 (2024-10-12)
 

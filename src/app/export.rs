@@ -59,7 +59,7 @@ pub fn export(args: &ExportCommand) -> anyhow::Result<()> {
     Ok(())
 }
 
-struct Exporter {
+pub struct Exporter {
     input_path: PathBuf,
     writer: SeqWriter<ProgramOutput>,
     hasher: MultiHasher,
@@ -70,7 +70,7 @@ struct Exporter {
 }
 
 impl Exporter {
-    fn new(
+    pub fn new(
         input_path: &Path,
         writer: SeqWriter<ProgramOutput>,
         no_block: bool,
@@ -104,7 +104,7 @@ impl Exporter {
         }
     }
 
-    fn process_header(
+    pub fn process_header(
         &mut self,
         header: &WarcHeader,
         record_boundary_position: u64,
@@ -145,7 +145,7 @@ impl Exporter {
         Ok(())
     }
 
-    fn process_block(&mut self, data: &[u8]) -> anyhow::Result<()> {
+    pub fn process_block(&mut self, data: &[u8]) -> anyhow::Result<()> {
         if !self.no_block {
             self.message_block_chunk(data)?;
         }
@@ -205,7 +205,7 @@ impl Exporter {
         Ok(())
     }
 
-    fn finish(&mut self) -> anyhow::Result<()> {
+    pub fn finish(&mut self) -> anyhow::Result<()> {
         self.writer.put(WarcMessage::EndOfFile(EndOfFile {}))?;
 
         Ok(())

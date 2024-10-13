@@ -53,6 +53,25 @@ The above command has 3 arguments to the program:
 2. `--input` is an option. It starts with 2 hyphens. This specifies that the program should accept an input filename.
 3. `my_warc_file.warc.gz` is a value to the `input` option.
 
+If an option value has spaces or special symbols, put quotation marks:
+
+```sh
+warcat list --input "My WARC File (Copy).warc.gz"
+```
+
+Option values can also be specified by a `=` character if it helps with clarity:
+
+```sh
+warcat list --input=my_warc_file.warc.gz
+warcat list --input="My WARC File (Copy).warc.gz"
+```
+
+Note that some options don't take a value. These options are also known as flags (as in boolean true/false):
+
+```sh
+warcat --quiet
+```
+
 If you need help in a command, enter something like:
 
 ```sh

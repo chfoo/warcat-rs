@@ -16,6 +16,7 @@ WARC archive tool
 * `export` — Decodes a WARC file to messages in a easier-to-process format such as JSON
 * `import` — Encodes a WARC file from messages in a format of the `export` subcommand
 * `list` — Provides a listing of the WARC records
+* `get` — Returns a single WARC record
 * `extract` — Extracts resources for casual viewing of the WARC contents
 * `verify` — Perform specification and integrity checks on WARC files
 * `self` — Self-installer and uninstaller
@@ -179,6 +180,95 @@ Provides a listing of the WARC records
    The pseudo-name `:position` represents the position in the file. `:file` represents the path of the file.
 
   Default value: `:position,WARC-Record-ID,WARC-Type,Content-Type,WARC-Target-URI`
+
+
+
+## `warcat get`
+
+Returns a single WARC record
+
+**Usage:** `warcat get <COMMAND>`
+
+###### **Subcommands:**
+
+* `export` — Output export messages
+* `extract` — Extract a resource
+
+
+
+## `warcat get export`
+
+Output export messages
+
+**Usage:** `warcat get export [OPTIONS] --position <POSITION> --id <ID>`
+
+###### **Options:**
+
+* `--input <INPUT>` — Path of the WARC file
+
+  Default value: `-`
+* `--compression <COMPRESSION>` — Compression format of the input WARC file
+
+  Default value: `auto`
+
+  Possible values:
+  - `auto`:
+    Automatically detect the format by the filename extension
+  - `none`:
+    No compression
+  - `gzip`:
+    Gzip format
+
+* `--position <POSITION>` — Position where the record is located in the input WARC file
+* `--id <ID>` — The ID of the record to extract
+* `--output <OUTPUT>` — Path for the output messages
+
+  Default value: `-`
+* `--format <FORMAT>` — Format for the output messages
+
+  Default value: `json-seq`
+
+  Possible values:
+  - `json-seq`:
+    JSON sequences (RFC 7464)
+  - `jsonl`:
+    JSON Lines
+  - `cbor-seq`:
+    CBOR sequences (RFC 8742)
+
+* `--no-block` — Do not output block messages
+* `--extract` — Output extract messages
+
+
+
+## `warcat get extract`
+
+Extract a resource
+
+**Usage:** `warcat get extract [OPTIONS] --position <POSITION> --id <ID>`
+
+###### **Options:**
+
+* `--input <INPUT>`
+
+  Default value: `-`
+* `--compression <COMPRESSION>` — Compression format of the input WARC file
+
+  Default value: `auto`
+
+  Possible values:
+  - `auto`:
+    Automatically detect the format by the filename extension
+  - `none`:
+    No compression
+  - `gzip`:
+    Gzip format
+
+* `--position <POSITION>` — Position where the record is located in the input WARC file
+* `--id <ID>` — The ID of the record to extract
+* `--output <OUTPUT>` — Path for the output file
+
+  Default value: `-`
 
 
 

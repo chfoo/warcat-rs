@@ -44,6 +44,14 @@ pub struct Decoder<S, R: Read> {
 }
 
 impl<S, R: Read> Decoder<S, R> {
+    pub fn get_ref(&self) -> &R {
+        self.input.get_ref().get_ref().get_ref()
+    }
+
+    pub fn get_mut(&mut self) -> &mut R {
+        self.input.get_mut().get_mut().get_mut()
+    }
+
     /// Returns the position of the beginning of a WARC record.
     ///
     /// This function is intended for indexing a WARC file.

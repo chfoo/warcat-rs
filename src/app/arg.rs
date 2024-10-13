@@ -38,6 +38,7 @@ pub enum Command {
     Export(ExportCommand),
     Import(ImportCommand),
     List(ListCommand),
+    Get(GetCommand),
     Extract(ExtractCommand),
     Verify(VerifyCommand),
     Self_(SelfCommand),
@@ -128,6 +129,79 @@ pub struct ListCommand {
         default_value = ":position,WARC-Record-ID,WARC-Type,Content-Type,WARC-Target-URI"
     )]
     pub field: Vec<String>,
+}
+
+/// Returns a single WARC record.
+#[derive(Parser, Debug)]
+pub struct GetCommand {
+    #[command(subcommand)]
+    pub subcommand: GetSubcommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum GetSubcommand {
+    Export(GetExportSubcommand),
+    Extract(GetExtractSubcommand),
+}
+
+/// Output export messages.
+#[derive(Parser, Debug)]
+pub struct GetExportSubcommand {
+    /// Path of the WARC file.
+    #[clap(long, default_value = "-")]
+    pub input: PathBuf,
+
+    /// Compression format of the input WARC file.
+    #[clap(long, default_value = "auto")]
+    pub compression: CompressionFormat,
+
+    /// Position where the record is located in the input WARC file.
+    #[clap(long, required = true)]
+    pub position: u64,
+
+    /// The ID of the record to extract.
+    #[clap(long, required = true)]
+    pub id: String,
+
+    /// Path for the output messages.
+    #[clap(long, default_value = "-")]
+    pub output: PathBuf,
+
+    /// Format for the output messages.
+    #[clap(long, default_value = "json-seq")]
+    pub format: SerializationFormat,
+
+    /// Do not output block messages.
+    #[clap(long)]
+    pub no_block: bool,
+
+    /// Output extract messages.
+    #[clap(long)]
+    pub extract: bool,
+}
+
+/// Extract a resource.
+#[derive(Parser, Debug)]
+pub struct GetExtractSubcommand {
+    // Path of the WARC file.
+    #[clap(long, default_value = "-")]
+    pub input: PathBuf,
+
+    /// Compression format of the input WARC file.
+    #[clap(long, default_value = "auto")]
+    pub compression: CompressionFormat,
+
+    /// Position where the record is located in the input WARC file.
+    #[clap(long, required = true)]
+    pub position: u64,
+
+    /// The ID of the record to extract.
+    #[clap(long, required = true)]
+    pub id: String,
+
+    /// Path for the output file.
+    #[clap(long, default_value = "-")]
+    pub output: PathBuf,
 }
 
 /// Extracts resources for casual viewing of the WARC contents.

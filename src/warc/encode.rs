@@ -29,6 +29,16 @@ pub struct Encoder<S, W: Write> {
     config: EncoderConfig,
 }
 
+impl<S, W: Write> Encoder<S, W> {
+    pub fn get_ref(&self) -> &W {
+        self.output.get_ref().get_ref()
+    }
+
+    pub fn get_mut(&mut self) -> &mut W {
+        self.output.get_mut().get_mut()
+    }
+}
+
 impl<W: Write> Encoder<EncStateHeader, W> {
     /// Create a new encoder.
     ///

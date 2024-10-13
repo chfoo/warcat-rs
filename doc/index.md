@@ -11,6 +11,7 @@ This documentation provides a user guide for the Warcat application.
 
 setup
 intro_to_cli
+usage_examples
 integration
 export_import
 cli_reference
