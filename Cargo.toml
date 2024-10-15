@@ -35,7 +35,7 @@ tracing-subscriber = { version = "0.3.18", features = ["json"], optional = true 
 # Everything:
 blake2 = "0.10.6"
 blake3 = { version = "1.5.4", features = ["pure", "traits-preview"] }
-brotli = "6.0.0"
+brotli = "7.0.0"
 chrono = "0.4.38"
 ciborium = "0.2.2"
 crc32c = "0.6.8"
