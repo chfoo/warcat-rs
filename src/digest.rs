@@ -21,6 +21,7 @@ pub enum AlgorithmName {
     Sha3_256,
     Sha3_512,
     Blake2s,
+    Blake2b,
     Blake3,
 }
 
@@ -37,6 +38,7 @@ impl AlgorithmName {
             Self::Sha3_256 => "sha3-256",
             Self::Sha3_512 => "sha3-512",
             Self::Blake2s => "blake2s",
+            Self::Blake2b => "blake2b",
             Self::Blake3 => "blake3",
         }
     }
@@ -53,6 +55,7 @@ impl AlgorithmName {
             Self::Sha3_256 => 32,
             Self::Sha3_512 => 64,
             Self::Blake2s => 32,
+            Self::Blake2b => 64,
             Self::Blake3 => 32,
         }
     }
@@ -81,6 +84,7 @@ impl FromStr for AlgorithmName {
             "sha3-256" => Ok(Self::Sha3_256),
             "sha3-512" => Ok(Self::Sha3_512),
             "blake2s" => Ok(Self::Blake2s),
+            "blake2b" => Ok(Self::Blake2b),
             "blake3" => Ok(Self::Blake3),
 
             _ => Err(ProtocolError::new(ProtocolErrorKind::UnsupportedDigest)),
@@ -196,6 +200,7 @@ enum HasherImpl {
     Sha3_256(sha3::Sha3_256),
     Sha3_512(sha3::Sha3_512),
     Blake2s(blake2::Blake2s256),
+    Blake2b(blake2::Blake2b512),
     Blake3(blake3::Hasher),
 }
 
@@ -212,6 +217,7 @@ impl HasherImpl {
             Self::Sha3_256(digest) => digest.update(data),
             Self::Sha3_512(digest) => digest.update(data),
             Self::Blake2s(digest) => digest.update(data),
+            Self::Blake2b(digest) => digest.update(data),
             Self::Blake3(digest) => digest::Digest::update(digest, data),
         }
     }
@@ -228,6 +234,7 @@ impl HasherImpl {
             Self::Sha3_256(digest) => digest.finalize().to_vec(),
             Self::Sha3_512(digest) => digest.finalize().to_vec(),
             Self::Blake2s(digest) => digest.finalize().to_vec(),
+            Self::Blake2b(digest) => digest.finalize().to_vec(),
             Self::Blake3(digest) => digest.finalize().to_vec(),
         }
     }
@@ -266,7 +273,8 @@ impl Hasher {
             AlgorithmName::Sha512 => HasherImpl::Sha512(sha2::Sha512::new()),
             AlgorithmName::Sha3_256 => HasherImpl::Sha3_256(sha3::Sha3_256::new()),
             AlgorithmName::Sha3_512 => HasherImpl::Sha3_512(sha3::Sha3_512::new()),
-            AlgorithmName::Blake2s => HasherImpl::Blake2s(blake2::Blake2s::new()),
+            AlgorithmName::Blake2s => HasherImpl::Blake2s(blake2::Blake2s256::new()),
+            AlgorithmName::Blake2b => HasherImpl::Blake2b(blake2::Blake2b512::new()),
             AlgorithmName::Blake3 => HasherImpl::Blake3(blake3::Hasher::new()),
         }
     }

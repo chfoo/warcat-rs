@@ -26,9 +26,10 @@ pub struct Header {
     pub fields: Vec<(String, String)>,
 }
 
+#[serde_with::serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct BlockChunk {
-    #[serde(with = "serde_bytes")]
+    #[serde_as(as = "serde_with::IfIsHumanReadable<serde_with::base64::Base64,serde_with::Bytes>")]
     pub data: Vec<u8>,
 }
 
@@ -46,9 +47,10 @@ pub struct ExtractMetadata {
     pub is_truncated: bool,
 }
 
+#[serde_with::serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ExtractChunk {
-    #[serde(with = "serde_bytes")]
+    #[serde_as(as = "serde_with::IfIsHumanReadable<serde_with::base64::Base64,serde_with::Bytes>")]
     pub data: Vec<u8>,
 }
 
