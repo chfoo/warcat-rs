@@ -64,6 +64,8 @@ zstd = { version = "0.13.2", optional = true }
 
 [dev-dependencies]
 anyhow = "1.0.86"
+rand = "0.8.5"
+rand_xoshiro = "0.6.0"
 tracing-test = "0.2.5"
 
 [features]

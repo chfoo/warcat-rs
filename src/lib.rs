@@ -14,7 +14,7 @@
 //! The library is designed first in mind for the binary, so some parts of
 //! the API will be unstable or not relevant.
 //!
-//! The main entrypoints to this library is [`warc::Decoder`] and [`warc::Encoder`].
+//! The main entrypoints to this library is [`warc::Decoder`]/[`warc::PushDecoder`] and [`warc::Encoder`].
 
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 

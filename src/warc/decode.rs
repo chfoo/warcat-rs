@@ -1,11 +1,14 @@
 //! WARC file reading
-use std::io::{BufRead, Read};
+use std::{
+    collections::VecDeque,
+    io::{Read, Write},
+};
 
 use crate::{
-    compress::{Decompressor, Format},
+    compress::{Format, PushDecompressor},
     error::{GeneralError, ProtocolError, ProtocolErrorKind},
     header::WarcHeader,
-    io::{BufferReader, LogicalPosition},
+    io::LogicalPosition,
 };
 
 const BUFFER_LENGTH: usize = 4096;
@@ -22,70 +25,90 @@ pub struct DecoderConfig {
 pub struct DecStateHeader;
 #[derive(Debug, Default)]
 pub struct DecStateBlock {
-    length: u64,
-    read: u64,
-    boundary: [u8; 4],
-    boundary_len: usize,
+    is_end: bool,
 }
 
 /// WARC format reader
-///
-/// This struct is able keep its state consistent when the underlying reader
-/// returns an error such as [`std::io::ErrorKind::WouldBlock`]. It is safe
-/// for the caller to retry.
-/// This property allows the decoder to be used in a push-based fashion
-/// in alignment to the sans-IO philosophy.
 #[derive(Debug)]
 pub struct Decoder<S, R: Read> {
     state: S,
-    input: BufferReader<Decompressor<BufferReader<R>>>,
-    config: DecoderConfig,
-    record_boundary_position: u64,
+    input: R,
+    push_decoder: PushDecoder,
+    logical_position: u64,
+    buf: Vec<u8>,
 }
 
 impl<S, R: Read> Decoder<S, R> {
     pub fn get_ref(&self) -> &R {
-        self.input.get_ref().get_ref().get_ref()
+        &self.input
     }
 
     pub fn get_mut(&mut self) -> &mut R {
-        self.input.get_mut().get_mut().get_mut()
+        &mut self.input
     }
 
     /// Returns the position of the beginning of a WARC record.
     ///
     /// This function is intended for indexing a WARC file.
     pub fn record_boundary_position(&self) -> u64 {
-        self.record_boundary_position
+        self.push_decoder.record_boundary_position()
+    }
+
+    fn read_into_push_decoder(&mut self) -> std::io::Result<usize> {
+        tracing::trace!("read into push decoder");
+
+        self.buf.resize(BUFFER_LENGTH, 0);
+
+        let read_length = self.input.read(&mut self.buf)?;
+
+        self.buf.truncate(read_length);
+
+        self.logical_position += read_length as u64;
+
+        self.push_decoder.write_all(&self.buf)?;
+
+        tracing::trace!(read_length, "read into push decoder");
+
+        Ok(read_length)
+    }
+
+    fn read_nonzero_into_push_decoder(&mut self) -> std::io::Result<()> {
+        let read_length = self.read_into_push_decoder()?;
+
+        if read_length == 0 {
+            Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof))
+        } else {
+            Ok(())
+        }
     }
 }
 
 impl<R: Read> Decoder<DecStateHeader, R> {
     /// Creates a new decoder that reads from the given reader.
     pub fn new(input: R, config: DecoderConfig) -> std::io::Result<Self> {
-        let input = BufferReader::new(Decompressor::new(
-            BufferReader::new(input),
-            config.compression_format,
-        )?);
+        let push_decoder = PushDecoder::new(config)?;
 
         Ok(Self {
             state: DecStateHeader,
             input,
-            config,
-            record_boundary_position: 0,
+            push_decoder,
+            logical_position: 0,
+            buf: Vec::with_capacity(BUFFER_LENGTH),
         })
     }
 
     /// Returns the underlying reader.
     pub fn into_inner(self) -> R {
-        self.input.into_inner().into_inner().into_inner()
+        self.input
     }
 
     /// Returns whether there is another WARC record to be read.
     pub fn has_next_record(&mut self) -> std::io::Result<bool> {
-        self.input.fill_buffer_if_empty()?;
+        if self.push_decoder.is_ready() {
+            self.read_into_push_decoder()?;
+        }
 
-        Ok(!self.input.buffer().is_empty() || self.input.get_mut().has_data_left()?)
+        Ok(!self.push_decoder.is_ready())
     }
 
     /// Reads the header portion of a WARC record.
@@ -94,75 +117,72 @@ impl<R: Read> Decoder<DecStateHeader, R> {
     /// reader for reading the block portion of a WARC record.
     pub fn read_header(mut self) -> Result<(WarcHeader, Decoder<DecStateBlock, R>), GeneralError> {
         loop {
-            if let Some(index) = crate::parse::scan_header_deliminator(self.input.buffer()) {
-                let header_bytes = &self.input.buffer()[0..index];
-                let header = WarcHeader::parse(header_bytes)?;
-                let length = header.content_length()?;
-                let record_id = header.fields.get("WARC-Record-ID");
-                let warc_type = header.fields.get("WARC-Type");
-                self.input.consume(index);
-
-                tracing::trace!(record_id, warc_type, content_length = length, "read record");
-
-                return Ok((
-                    header,
-                    Decoder {
-                        state: DecStateBlock {
-                            length,
-                            ..Default::default()
+            match self.push_decoder.get_event()? {
+                PushDecoderEvent::Ready | PushDecoderEvent::WantData => {
+                    self.read_nonzero_into_push_decoder()?;
+                    continue;
+                }
+                PushDecoderEvent::Continue => continue,
+                PushDecoderEvent::Header { header } => {
+                    return Ok((
+                        header,
+                        Decoder {
+                            state: DecStateBlock::default(),
+                            input: self.input,
+                            push_decoder: self.push_decoder,
+                            buf: self.buf,
+                            logical_position: self.logical_position,
                         },
-                        input: self.input,
-                        config: self.config,
-                        record_boundary_position: self.record_boundary_position,
-                    },
-                ));
+                    ));
+                }
+                PushDecoderEvent::BlockData { data: _ } => unreachable!(),
+                PushDecoderEvent::EndRecord => unreachable!(),
             }
-
-            self.check_max_header_length()?;
-            self.fill_buf_from_source()?;
         }
-    }
-
-    fn check_max_header_length(&self) -> Result<(), ProtocolError> {
-        tracing::trace!("check max header length");
-
-        if self.input.buffer().len() > MAX_HEADER_LENGTH {
-            Err(ProtocolError::new(ProtocolErrorKind::HeaderTooBig))
-        } else {
-            Ok(())
-        }
-    }
-
-    fn fill_buf_from_source(&mut self) -> std::io::Result<()> {
-        tracing::trace!("fill buf");
-
-        let read_length = self.input.fill_buffer()?;
-
-        if read_length == 0 {
-            return Err(std::io::Error::from(std::io::ErrorKind::UnexpectedEof));
-        }
-
-        tracing::trace!(read_length, buf_len = self.input.buffer().len(), "fill buf");
-
-        Ok(())
     }
 }
 
 impl<R: Read> Decoder<DecStateBlock, R> {
     fn read_block_impl(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        assert!(self.state.length >= self.state.read);
-        let remain_length = self.state.length - self.state.read;
-        let buf_upper = buf
-            .len()
-            .min(usize::try_from(remain_length).unwrap_or(usize::MAX));
-        let buf = &mut buf[0..buf_upper];
+        if self.state.is_end {
+            return Ok(0);
+        }
 
-        let read_length = self.input.read(buf)?;
+        if buf.is_empty() {
+            return Ok(0);
+        }
 
-        self.state.read += read_length as u64;
-        tracing::trace!(read_length, remain_length, "read block");
+        self.push_decoder.set_max_buffer_len(buf.len());
 
-        Ok(read_length)
+        loop {
+            match self
+                .push_decoder
+                .get_event()
+                .map_err(std::io::Error::other)?
+            {
+                PushDecoderEvent::Ready => unreachable!(),
+                PushDecoderEvent::WantData => {
+                    self.read_nonzero_into_push_decoder()?;
+                    continue;
+                }
+                PushDecoderEvent::Continue => continue,
+                PushDecoderEvent::Header { header: _ } => unreachable!(),
+                PushDecoderEvent::BlockData { data } => {
+                    assert!(data.len() <= buf.len());
+
+                    let buf_upper = buf.len().min(data.len());
+                    tracing::trace!(read_length = buf_upper, "read block");
+
+                    buf[0..buf_upper].copy_from_slice(&data[0..buf_upper]);
+
+                    return Ok(buf_upper);
+                }
+                PushDecoderEvent::EndRecord => {
+                    self.state.is_end = true;
+                    return Ok(0);
+                }
+            }
+        }
     }
 
     /// Indicate that reading the block portion of WARC record has completed.
@@ -175,71 +195,36 @@ impl<R: Read> Decoder<DecStateBlock, R> {
     pub fn finish_block(mut self) -> Result<Decoder<DecStateHeader, R>, GeneralError> {
         tracing::trace!("finish block");
         self.read_remaining_block()?;
-        self.read_record_boundary()?;
-
-        self.input.fill_buffer_if_empty()?;
-
-        if self.config.compression_format.is_multistream() && !self.input.buffer().is_empty() {
-            tracing::warn!("file not using 'Record-at-time compression'");
-        }
-
-        self.record_boundary_position = self.logical_position();
-
-        if self.input.buffer().is_empty() && self.input.get_mut().has_data_left()? {
-            self.input.get_mut().restart_stream()?;
-        }
 
         Ok(Decoder {
             state: DecStateHeader,
             input: self.input,
-            config: self.config,
-            record_boundary_position: self.record_boundary_position,
+            push_decoder: self.push_decoder,
+            logical_position: self.logical_position,
+            buf: self.buf,
         })
     }
 
-    fn read_remaining_block(&mut self) -> std::io::Result<()> {
+    fn read_remaining_block(&mut self) -> Result<(), GeneralError> {
         tracing::trace!("read remaining block");
-        let mut buf: Vec<u8> = Vec::with_capacity(BUFFER_LENGTH);
 
-        loop {
-            assert!(self.state.length >= self.state.read);
-            let remaining_bytes = self.state.length - self.state.read;
+        self.push_decoder.set_max_buffer_len(BUFFER_LENGTH);
 
-            if remaining_bytes == 0 {
-                break;
+        while !self.state.is_end {
+            match self.push_decoder.get_event()? {
+                PushDecoderEvent::Ready => unreachable!(),
+                PushDecoderEvent::WantData => {
+                    self.read_nonzero_into_push_decoder()?;
+                    continue;
+                }
+                PushDecoderEvent::Continue => continue,
+                PushDecoderEvent::Header { header: _ } => unreachable!(),
+                PushDecoderEvent::BlockData { data: _ } => continue,
+                PushDecoderEvent::EndRecord => self.state.is_end = true,
             }
-
-            let buf_length = BUFFER_LENGTH.min(remaining_bytes as usize);
-            buf.resize(buf_length, 0);
-            let read_length = self.input.read(&mut buf)?;
-            self.state.read += read_length as u64;
-            tracing::trace!(read_length, remaining_bytes, "read remaining block");
         }
 
         Ok(())
-    }
-
-    fn read_record_boundary(&mut self) -> Result<(), GeneralError> {
-        tracing::trace!("read record boundary");
-
-        loop {
-            let remain_len = 4 - self.state.boundary_len;
-
-            if remain_len == 0 {
-                break;
-            }
-
-            let buf = &mut self.state.boundary[self.state.boundary_len..];
-            let read_len = self.input.read(buf)?;
-
-            self.state.boundary_len += read_len;
-        }
-
-        if &self.state.boundary != b"\r\n\r\n" {
-            Err(ProtocolError::new(ProtocolErrorKind::InvalidRecordBoundary).into())
-        } else {
-            Ok(())
-        }
     }
 }
 
@@ -251,11 +236,360 @@ impl<R: Read> Read for Decoder<DecStateBlock, R> {
 
 impl<R: Read, S> LogicalPosition for Decoder<S, R> {
     fn logical_position(&self) -> u64 {
-        if self.config.compression_format == Format::Identity {
-            self.input.logical_position()
+        self.logical_position
+    }
+}
+
+/// Events for [`PushDecoder`].
+#[derive(Debug)]
+pub enum PushDecoderEvent<'a> {
+    /// No input data has been received yet.
+    Ready,
+    /// More data is needed.
+    WantData,
+    /// Internal processing was successful and the user should call again.
+    Continue,
+    /// Decoding a header was successful.
+    Header { header: WarcHeader },
+    /// A chunk of the decoded block data.
+    BlockData { data: &'a [u8] },
+    /// Finished processing a single record.
+    EndRecord,
+}
+
+impl<'a> PushDecoderEvent<'a> {
+    pub fn is_ready(&self) -> bool {
+        matches!(self, Self::Ready)
+    }
+
+    pub fn is_want_data(&self) -> bool {
+        matches!(self, Self::WantData)
+    }
+
+    pub fn is_continue(&self) -> bool {
+        matches!(self, Self::Continue)
+    }
+
+    pub fn is_header(&self) -> bool {
+        matches!(self, Self::Header { .. })
+    }
+
+    pub fn is_block_data(&self) -> bool {
+        matches!(self, Self::BlockData { .. })
+    }
+
+    pub fn as_header(&self) -> Option<&WarcHeader> {
+        if let Self::Header { header } = self {
+            Some(header)
         } else {
-            self.input.get_ref().get_ref().logical_position()
+            None
         }
+    }
+
+    pub fn as_block_data(&self) -> Option<&'a [u8]> {
+        if let Self::BlockData { data } = self {
+            Some(data)
+        } else {
+            None
+        }
+    }
+
+    /// Returns `true` if the push decoder event is [`EndRecord`].
+    ///
+    /// [`EndRecord`]: PushDecoderEvent::EndRecord
+    #[must_use]
+    pub fn is_end_record(&self) -> bool {
+        matches!(self, Self::EndRecord)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PushDecoderState {
+    PendingHeader,
+    Header,
+    Block,
+    RecordBoundary,
+}
+
+/// WARC format decoder push-style.
+///
+/// This is similar to [`Decoder`] but input data is written to the struct
+/// and events are gathered by the caller. This push-style method can be
+/// use for sans-IO implementations.
+#[derive(Debug)]
+pub struct PushDecoder {
+    config: DecoderConfig,
+    state: PushDecoderState,
+    decompressor: PushDecompressor<VecDeque<u8>>,
+    /// Data that has not been decompresssed yet because it's for the next record.
+    unused_input_buf: VecDeque<u8>,
+    /// Number of bytes that have been decompressed.
+    bytes_consumed: u64,
+    record_boundary_position: u64,
+    /// Total number of bytes to be read from the record block.
+    block_length: u64,
+    /// Number of bytes read so far from the record block.
+    block_current_position: u64,
+    /// Maximum number of bytes that can be used for PushDecoderEvent::BlockData.
+    buf_output_max_len: usize,
+    /// Number of bytes borrowed for PushDecoderEvent::BlockData.
+    buf_output_reference_len: usize,
+}
+
+impl PushDecoder {
+    /// Creates a new decoder.
+    pub fn new(config: DecoderConfig) -> std::io::Result<Self> {
+        let decompressor = PushDecompressor::new(VecDeque::new(), config.compression_format)?;
+
+        Ok(Self {
+            config,
+            state: PushDecoderState::PendingHeader,
+            decompressor,
+            unused_input_buf: VecDeque::with_capacity(BUFFER_LENGTH),
+            bytes_consumed: 0,
+            record_boundary_position: 0,
+            block_length: 0,
+            block_current_position: 0,
+            buf_output_max_len: BUFFER_LENGTH,
+            buf_output_reference_len: 0,
+        })
+    }
+
+    /// Returns the position of the beginning of a WARC record.
+    ///
+    /// This function is intended for indexing a WARC file.
+    pub fn record_boundary_position(&self) -> u64 {
+        self.record_boundary_position
+    }
+
+    /// Returns whether internal buffer contains unused bytes that can be
+    /// used to decode the next record.
+    pub fn has_next_record(&self) -> bool {
+        !self.unused_input_buf.is_empty()
+    }
+
+    /// Returns the maximum buffer length that can be used in [`PushDecoderEvent::BlockData`].
+    pub fn max_buffer_len(&self) -> usize {
+        self.buf_output_max_len
+    }
+
+    /// Sets the maximum buffer length that can be used in [`PushDecoderEvent::BlockData`].
+    ///
+    /// If the given value is 0, the value is set to a non-zero default.
+    pub fn set_max_buffer_len(&mut self, value: usize) {
+        if value != 0 {
+            self.buf_output_max_len = value;
+        } else {
+            self.buf_output_max_len = BUFFER_LENGTH;
+        }
+    }
+
+    /// Returns whether the next call to [`get_event()`](Self::get_event())
+    /// will return [`PushDecoderEvent::Ready`].
+    pub fn is_ready(&self) -> bool {
+        matches!(self.state, PushDecoderState::PendingHeader)
+    }
+
+    /// Returns a processed event.
+    ///
+    /// In order for this decoder to produce events, the caller must
+    /// put input data using the [`Write`] trait.
+    pub fn get_event(&mut self) -> Result<PushDecoderEvent, GeneralError> {
+        self.decompressor
+            .get_mut()
+            .drain(0..self.buf_output_reference_len);
+        self.buf_output_reference_len = 0;
+
+        match self.state {
+            PushDecoderState::PendingHeader => Ok(PushDecoderEvent::Ready),
+            PushDecoderState::Header => self.process_header(),
+            PushDecoderState::Block => self.process_block(),
+            PushDecoderState::RecordBoundary => self.process_record_boundary(),
+        }
+    }
+
+    fn process_header(&mut self) -> Result<PushDecoderEvent, GeneralError> {
+        let buf = self.decompressor.get_mut().make_contiguous();
+
+        if let Some(index) = crate::parse::scan_header_deliminator(buf) {
+            let header = self.process_decodable_header(index)?;
+
+            return Ok(PushDecoderEvent::Header { header });
+        }
+
+        self.check_max_header_length()?;
+
+        Ok(PushDecoderEvent::WantData)
+    }
+
+    fn process_decodable_header(&mut self, index: usize) -> Result<WarcHeader, GeneralError> {
+        // Okay to discard slice1 because we called make_contiguous() earlier.
+        let (buf, _slice1) = self.decompressor.get_ref().as_slices();
+
+        let header_bytes = &buf[0..index];
+        let header = WarcHeader::parse(header_bytes)?;
+        let length = header.content_length()?;
+        let record_id = header.fields.get("WARC-Record-ID");
+        let warc_type = header.fields.get("WARC-Type");
+        self.decompressor.get_mut().drain(0..index);
+
+        tracing::trace!(
+            record_id,
+            warc_type,
+            content_length = length,
+            "process decodable header"
+        );
+
+        self.block_current_position = 0;
+        self.block_length = length;
+
+        tracing::trace!("Header -> Block");
+        self.state = PushDecoderState::Block;
+
+        Ok(header)
+    }
+
+    fn check_max_header_length(&self) -> Result<(), ProtocolError> {
+        tracing::trace!("check max header length");
+
+        if self.decompressor.get_ref().len() > MAX_HEADER_LENGTH {
+            Err(ProtocolError::new(ProtocolErrorKind::HeaderTooBig))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn process_block(&mut self) -> Result<PushDecoderEvent, GeneralError> {
+        tracing::trace!(
+            self.block_length,
+            self.block_current_position,
+            "process block"
+        );
+
+        assert!(self.block_length >= self.block_current_position);
+        let remaining_bytes = self.block_length - self.block_current_position;
+
+        if remaining_bytes == 0 {
+            tracing::trace!("Block -> RecordBoundary");
+            self.state = PushDecoderState::RecordBoundary;
+            Ok(PushDecoderEvent::Continue)
+        } else if self.decompressor.get_ref().is_empty() {
+            Ok(PushDecoderEvent::WantData)
+        } else {
+            // Okay to discard slice1 because the caller will continually poll
+            // until the buffer is empty.
+            let (slice0, _slice1) = self.decompressor.get_ref().as_slices();
+
+            let consume_len = self.buf_output_max_len.min(slice0.len());
+            let consume_len = consume_len.min(remaining_bytes.try_into().unwrap_or(usize::MAX));
+
+            self.block_current_position += consume_len as u64;
+            self.buf_output_reference_len = consume_len;
+
+            tracing::trace!(consume_len, "process block");
+
+            Ok(PushDecoderEvent::BlockData {
+                data: &slice0[0..consume_len],
+            })
+        }
+    }
+
+    fn process_record_boundary(&mut self) -> Result<PushDecoderEvent, GeneralError> {
+        tracing::trace!(
+            len = self.decompressor.get_ref().len(),
+            "process record boundary"
+        );
+
+        if self.decompressor.get_ref().len() >= 4 {
+            let mut buf = [0u8; 4];
+            let mut iter = self.decompressor.get_ref().range(0..4).copied();
+            buf[0] = iter.next().unwrap();
+            buf[1] = iter.next().unwrap();
+            buf[2] = iter.next().unwrap();
+            buf[3] = iter.next().unwrap();
+
+            if !buf.starts_with(b"\r\n\r\n") {
+                Err(ProtocolError::new(ProtocolErrorKind::InvalidRecordBoundary).into())
+            } else {
+                self.decompressor.get_mut().drain(0..4);
+
+                self.reset_for_next_record()?;
+
+                Ok(PushDecoderEvent::EndRecord)
+            }
+        } else {
+            Ok(PushDecoderEvent::WantData)
+        }
+    }
+
+    fn reset_for_next_record(&mut self) -> Result<(), GeneralError> {
+        if self.config.compression_format.is_multistream() && self.decompressor.get_ref().is_empty()
+        {
+            self.decompressor.restart_stream()?;
+        } else if self.config.compression_format.is_multistream() {
+            tracing::warn!("file is not using Record-at-time compression");
+        }
+
+        self.record_boundary_position = self.bytes_consumed;
+
+        self.consume_unused_input()?;
+
+        if self.decompressor.get_ref().is_empty() {
+            tracing::trace!("RecordBoundary -> PendingHeader");
+            self.state = PushDecoderState::PendingHeader;
+        } else {
+            tracing::trace!("RecordBoundary -> Header");
+            self.state = PushDecoderState::Header;
+        }
+
+        Ok(())
+    }
+
+    fn consume_unused_input(&mut self) -> Result<(), GeneralError> {
+        tracing::trace!(len = self.unused_input_buf.len(), "consume unused input");
+
+        while !self.unused_input_buf.is_empty() {
+            let (slice0, _slice1) = self.unused_input_buf.as_slices();
+            let write_len = self.decompressor.write(slice0)?;
+            tracing::trace!(write_len, "consume unused input");
+
+            if write_len == 0 {
+                break;
+            }
+
+            self.bytes_consumed += write_len as u64;
+            self.unused_input_buf.drain(..write_len);
+        }
+        Ok(())
+    }
+}
+
+impl Write for PushDecoder {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+
+        if self.state == PushDecoderState::PendingHeader {
+            tracing::trace!("PendingHeader -> Header");
+            self.state = PushDecoderState::Header;
+        }
+
+        let write_len = self.decompressor.write(buf)?;
+
+        tracing::trace!(buf_len = buf.len(), write_len, "push decoder write");
+
+        if write_len != 0 {
+            self.bytes_consumed += write_len as u64;
+            Ok(write_len)
+        } else {
+            self.unused_input_buf.write_all(buf)?;
+            Ok(buf.len())
+        }
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.decompressor.flush()
     }
 }
 
@@ -295,5 +629,84 @@ mod tests {
         assert!(!reader.has_next_record().unwrap());
 
         reader.into_inner();
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    fn test_push_reader() {
+        let _data = b"WARC/1.1\r\n\
+            Content-Length: 12\r\n\
+            \r\n\
+            Hello world!\
+            \r\n\r\n\
+            WARC/1.1\r\n\
+            Content-Length: 0\r\n\
+            \r\n\
+            \r\n\r\n";
+
+        let mut decoder = PushDecoder::new(DecoderConfig::default()).unwrap();
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_ready());
+
+        decoder.write_all(b"WARC/1.1\r\n").unwrap();
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_want_data());
+
+        decoder.write_all(b"Content-Length: 12\r\n").unwrap();
+        decoder.write_all(b"\r\n").unwrap();
+        decoder.write_all(b"Hello ").unwrap();
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_header());
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_block_data());
+        assert_eq!(event.as_block_data().unwrap(), b"Hello ");
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_want_data());
+
+        decoder.write_all(b"world!\r\n").unwrap();
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_block_data());
+        assert_eq!(event.as_block_data().unwrap(), b"world!");
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_continue());
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_want_data());
+
+        decoder.write_all(b"\r\n").unwrap();
+        decoder.write_all(b"WARC/1.1\r\n").unwrap();
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_end_record());
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_want_data());
+
+        decoder
+            .write_all(
+                b"Content-Length: 0\r\n\
+                \r\n\
+                \r\n\r\n",
+            )
+            .unwrap();
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_header());
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_continue());
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_end_record());
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_ready());
     }
 }
