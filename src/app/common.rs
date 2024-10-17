@@ -7,7 +7,7 @@ use crate::{
     compress::Format,
     header::WarcHeader,
     io::LogicalPosition,
-    warc::{Decoder, DecoderConfig, DecStateBlock, DecStateHeader},
+    warc::{DecStateBlock, DecStateHeader, Decoder, DecoderConfig},
 };
 
 use super::io::{ProgramInput, ProgramOutput};
@@ -69,6 +69,7 @@ where
     state: ReaderState,
     buf: Vec<u8>,
     callback: C,
+    pub has_record_at_time_compression_fault: bool,
 }
 
 impl<C> ReaderPipeline<C>
@@ -91,6 +92,7 @@ where
             state: ReaderState::Header(reader),
             buf: Vec::new(),
             callback,
+            has_record_at_time_compression_fault: false,
         })
     }
 
@@ -118,6 +120,8 @@ where
 
     fn process_header(&mut self) -> anyhow::Result<()> {
         let reader = self.state.take().try_into_header().unwrap();
+
+        self.has_record_at_time_compression_fault = reader.has_record_at_time_compression_fault();
 
         let (header, reader) = reader.read_header().context("invalid WARC header")?;
 

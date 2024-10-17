@@ -102,6 +102,15 @@ impl<R: Read> Decoder<DecStateHeader, R> {
         self.input
     }
 
+    /// Returns whether it was detected that the file was compressed
+    /// in a manner that makes random access to each record impossible.
+    ///
+    /// A false value is not guaranteed to be false unless the entire file has
+    /// been read.
+    pub fn has_record_at_time_compression_fault(&self) -> bool {
+        self.push_decoder.has_record_at_time_compression_fault()
+    }
+
     /// Returns whether there is another WARC record to be read.
     pub fn has_next_record(&mut self) -> std::io::Result<bool> {
         if self.push_decoder.is_ready() {
@@ -334,6 +343,8 @@ pub struct PushDecoder {
     buf_output_max_len: usize,
     /// Number of bytes borrowed for PushDecoderEvent::BlockData.
     buf_output_reference_len: usize,
+    /// Detected a compressed file that can't be randomly accessed
+    has_rat_comp_fault: bool,
 }
 
 impl PushDecoder {
@@ -352,6 +363,7 @@ impl PushDecoder {
             block_current_position: 0,
             buf_output_max_len: BUFFER_LENGTH,
             buf_output_reference_len: 0,
+            has_rat_comp_fault: false,
         })
     }
 
@@ -382,6 +394,15 @@ impl PushDecoder {
         } else {
             self.buf_output_max_len = BUFFER_LENGTH;
         }
+    }
+
+    /// Returns whether it was detected that the file was compressed
+    /// in a manner that makes random access to each record impossible.
+    ///
+    /// A false value is not guaranteed to be false unless the entire file has
+    /// been read.
+    pub fn has_record_at_time_compression_fault(&self) -> bool {
+        self.has_rat_comp_fault
     }
 
     /// Returns whether the next call to [`get_event()`](Self::get_event())
@@ -526,8 +547,9 @@ impl PushDecoder {
         if self.config.compression_format.is_multistream() && self.decompressor.get_ref().is_empty()
         {
             self.decompressor.restart_stream()?;
-        } else if self.config.compression_format.is_multistream() {
+        } else if self.config.compression_format.is_multistream() && !self.has_rat_comp_fault {
             tracing::warn!("file is not using Record-at-time compression");
+            self.has_rat_comp_fault = true;
         }
 
         self.record_boundary_position = self.bytes_consumed;

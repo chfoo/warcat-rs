@@ -300,6 +300,7 @@ pub enum VerifyCheck {
     Profile,
     // IdentifiedPayloadType,
     Segment,
+    RecordAtTimeCompression,
 }
 
 impl From<VerifyCheck> for Check {
@@ -322,6 +323,7 @@ impl From<VerifyCheck> for Check {
             VerifyCheck::Profile => Self::Profile,
             // VerifyCheck::IdentifiedPayloadType => Self::IdentifiedPayloadType,
             VerifyCheck::Segment => Self::Segment,
+            VerifyCheck::RecordAtTimeCompression => Self::RecordAtTimeCompression,
         }
     }
 }

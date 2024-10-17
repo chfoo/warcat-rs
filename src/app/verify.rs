@@ -35,7 +35,7 @@ pub fn verify(args: &VerifyCommand) -> anyhow::Result<ExitCode> {
         let compression_format = args.compression.try_into_native(input_path)?;
         let file_len = std::fs::metadata(input_path).map(|m| m.len()).ok();
 
-        ReaderPipeline::new(
+        let mut reader = ReaderPipeline::new(
             |event| match event {
                 ReaderEvent::Header {
                     header,
@@ -67,10 +67,14 @@ pub fn verify(args: &VerifyCommand) -> anyhow::Result<ExitCode> {
             input,
             compression_format,
             file_len,
-        )?
-        .run()?;
+        )?;
+        reader.run()?;
 
         let mut verifier = verifier.borrow_mut();
+
+        if reader.has_record_at_time_compression_fault {
+            verifier.add_not_record_at_time_compression();
+        }
 
         loop {
             let action = verifier.verify_end()?;

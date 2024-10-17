@@ -46,6 +46,7 @@ pub enum Check {
     Profile,
     // IdentifiedPayloadType,
     Segment,
+    RecordAtTimeCompression,
 }
 
 impl Check {
@@ -68,6 +69,7 @@ impl Check {
             Self::Profile,
             // Self::IdentifiedPayloadType,
             Self::Segment,
+            Self::RecordAtTimeCompression,
         ]
     }
 }
@@ -104,6 +106,7 @@ pub enum ProblemKind {
         actual: String,
     },
     ParsePayload(String),
+    NotRecordAtTimeCompression,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -843,6 +846,10 @@ impl Verifier {
         }
 
         self.payload_hashers = payload_hashers;
+    }
+
+    pub fn add_not_record_at_time_compression(&mut self) {
+        self.add_problem(ProblemKind::NotRecordAtTimeCompression);
     }
 }
 

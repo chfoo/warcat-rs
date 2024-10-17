@@ -4,6 +4,7 @@
 
 * Fixed: false positive Payload Digest problem during verify for "revisit" records.
 * Added: Get command for exporting/extracting single records.
+* Added: Record-at-time compression check to verify.
 
 ### Library
 
