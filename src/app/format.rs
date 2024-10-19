@@ -13,7 +13,7 @@ pub fn filename_compression_format(path: &Path) -> Option<Format> {
             return Some(Format::Gzip);
         }
         #[cfg(feature = "zstd")]
-        if filename.ends_with(".warc.zstd") {
+        if filename.ends_with(".warc.zst") {
             return Some(Format::Zstandard);
         }
     }

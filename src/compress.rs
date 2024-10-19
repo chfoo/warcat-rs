@@ -1,34 +1,21 @@
 //! Reader and writer abstractions for compressed streams.
 //!
-//! Some codecs support multistreams which are compressed files concatenated
-//! together. The purpose is to allow fast seeking within a file to a desired
-//! record.
-//!
-//! Zstandard only has minimal support.
+//! Some codecs support concatenation which is files or segments of files
+//! compressed individually and then joined directly together.
+//! The purpose is to allow fast seeking within a file to a desired record.
 
-// FIXME: For zstd, stopping properly at a frame does not work:
-// https://github.com/gyscos/zstd-rs/issues/15
-// FIXME: Dictionary in zstd requires skippable frames but the library does
-// not support it
 use std::{
     fmt::{Debug, Display},
     io::{BufRead, Read, Write},
     str::FromStr,
 };
 
-use brotli::{
-    writer::DecompressorWriter as BrPushDecoder, CompressorWriter as BrEncoder,
-    Decompressor as BrDecoder,
-};
-use flate2::{
-    bufread::{GzDecoder, ZlibDecoder},
-    write::{GzDecoder as GzPushDecoder, GzEncoder, ZlibDecoder as ZlibPushDecoder, ZlibEncoder},
-};
+use decode::{Decoder, PushDecoder};
+use encode::Encoder;
 
-#[cfg(feature = "zstd")]
-use zstd::stream::{
-    read::Decoder as ZstdDecoder, write::Decoder as ZstdPushDecoder, write::Encoder as ZstdEncoder,
-};
+mod decode;
+mod encode;
+pub mod zstd;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 /// Level of compression.
@@ -58,7 +45,7 @@ pub enum Format {
 
     /// Gzip file format and codec.
     ///
-    /// Supports multiple streams.
+    /// Supports concatenation.
     Gzip,
 
     /// Brotli raw codec.
@@ -66,14 +53,14 @@ pub enum Format {
 
     /// Zstandard file format and codec.
     ///
-    /// Supports multiple streams.
+    /// Supports concatenation.
     #[cfg(feature = "zstd")]
     Zstandard,
 }
 
 impl Format {
     /// Returns whether the codec supports concatenated members.
-    pub fn is_multistream(&self) -> bool {
+    pub fn supports_concatenation(&self) -> bool {
         match self {
             Self::Gzip => true,
             #[cfg(feature = "zstd")]
@@ -128,124 +115,36 @@ impl Display for FormatParseError {
     }
 }
 
-enum Encoder<W: Write> {
-    Identity(W),
-    Deflate(ZlibEncoder<W>),
-    Gzip(GzEncoder<W>),
-    Brotli(Box<BrEncoder<W>>),
-    #[cfg(feature = "zstd")]
-    Zstandard(ZstdEncoder<'static, W>),
-    None,
-}
-
-impl<W: Write> Encoder<W> {
-    fn get_ref(&self) -> &W {
-        match self {
-            Self::Identity(w) => w,
-            Self::Deflate(codec) => codec.get_ref(),
-            Self::Gzip(codec) => codec.get_ref(),
-            Self::Brotli(codec) => codec.get_ref(),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(codec) => codec.get_ref(),
-            Self::None => unreachable!(),
-        }
-    }
-
-    fn get_mut(&mut self) -> &mut W {
-        match self {
-            Self::Identity(w) => w,
-            Self::Deflate(codec) => codec.get_mut(),
-            Self::Gzip(codec) => codec.get_mut(),
-            Self::Brotli(codec) => codec.get_mut(),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(codec) => codec.get_mut(),
-            Self::None => unreachable!(),
-        }
-    }
-
-    fn finish(self) -> std::io::Result<W> {
-        match self {
-            Self::Identity(w) => Ok(w),
-            Self::Deflate(codec) => codec.finish(),
-            Self::Gzip(codec) => codec.finish(),
-            Self::Brotli(codec) => Ok(codec.into_inner()),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(codec) => codec.finish(),
-            Self::None => unreachable!(),
-        }
-    }
-}
-
-impl<W: Write> Write for Encoder<W> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        match self {
-            Self::Identity(w) => w.write(buf),
-            Self::Deflate(w) => w.write(buf),
-            Self::Gzip(w) => w.write(buf),
-            Self::Brotli(w) => w.write(buf),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(w) => w.write(buf),
-            Self::None => unreachable!(),
-        }
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        match self {
-            Self::Identity(w) => w.flush(),
-            Self::Deflate(w) => w.flush(),
-            Self::Gzip(w) => w.flush(),
-            Self::Brotli(w) => w.flush(),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(w) => w.flush(),
-            Self::None => unreachable!(),
-        }
-    }
-}
-
-impl<W: Write> Debug for Encoder<W> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Identity(_arg0) => f.debug_tuple("Identity").finish(),
-            Self::Deflate(_arg0) => f.debug_tuple("Deflate").finish(),
-            Self::Gzip(_arg0) => f.debug_tuple("Gzip").finish(),
-            Self::Brotli(_arg0) => f.debug_tuple("Brotli").finish(),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(_arg0) => f.debug_tuple("Zstandard").finish(),
-            Self::None => write!(f, "None"),
-        }
-    }
+#[derive(Debug, Clone, Default)]
+#[non_exhaustive]
+pub struct CompressorConfig {
+    pub format: Format,
+    pub level: Level,
+    pub dictionary: Dictionary,
 }
 
 /// Encoder for compressing streams.
 #[derive(Debug)]
 pub struct Compressor<W: Write> {
     encoder: Encoder<W>,
-    format: Format,
-    level: Level,
+    config: CompressorConfig,
 }
 
 impl<W: Write> Compressor<W> {
     /// Create a compressor for writing compressed data to the given writer.
     pub fn new(dest: W, format: Format) -> Self {
-        let level = Level::default();
-        let encoder = create_encoder(dest, format, level);
-
-        Self {
-            encoder,
+        let config = CompressorConfig {
             format,
-            level,
-        }
+            ..Default::default()
+        };
+        Self::with_config(dest, config)
     }
 
-    /// Create a compressor like [`Self::new()`] with a compression level.
-    pub fn with_level(dest: W, format: Format, level: Level) -> Self {
-        let encoder = create_encoder(dest, format, level);
+    /// [Create](Self::new()) a compressor with the given configuration.
+    pub fn with_config(dest: W, config: CompressorConfig) -> Self {
+        let encoder = Encoder::new(dest, config.format, config.level, &config.dictionary);
 
-        Self {
-            encoder,
-            format,
-            level,
-        }
+        Self { encoder, config }
     }
 
     /// Return a reference of the underlying writer.
@@ -265,12 +164,27 @@ impl<W: Write> Compressor<W> {
 
     /// Prepares the codec for writing a new stream.
     ///
-    /// This function has effect for only multistream codecs.
-    pub fn restart_stream(&mut self) -> std::io::Result<()> {
-        if self.format.is_multistream() {
-            let encoder = std::mem::replace(&mut self.encoder, Encoder::None);
-            let dest = encoder.finish()?;
-            self.encoder = create_encoder(dest, self.format, self.level);
+    /// This function has effect for only codecs that support concatenation.
+    /// If configured with a dictionary, it will be reused.
+    pub fn start_new_segment(&mut self) -> std::io::Result<()> {
+        match self.config.format {
+            Format::Gzip => {
+                let encoder = std::mem::replace(&mut self.encoder, Encoder::None);
+                let dest = encoder.finish()?;
+                self.encoder = Encoder::new(
+                    dest,
+                    self.config.format,
+                    self.config.level,
+                    &self.config.dictionary,
+                );
+            }
+            #[cfg(feature = "zstd")]
+            Format::Zstandard => {
+                if let Encoder::Zstandard(encoder) = &mut self.encoder {
+                    encoder.start_new_frame()?;
+                }
+            }
+            _ => {}
         }
 
         Ok(())
@@ -287,95 +201,34 @@ impl<W: Write> Write for Compressor<W> {
     }
 }
 
-enum Decoder<R: BufRead> {
-    Identity(R),
-    Deflate(ZlibDecoder<R>),
-    Gzip(GzDecoder<R>),
-    Brotli(Box<BrDecoder<R>>),
-    #[cfg(feature = "zstd")]
-    Zstandard(ZstdDecoder<'static, R>),
-    None,
-}
-
-impl<R: BufRead> Debug for Decoder<R> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Identity(_arg0) => f.debug_tuple("Identity").finish(),
-            Self::Deflate(_arg0) => f.debug_tuple("Deflate").finish(),
-            Self::Gzip(_arg0) => f.debug_tuple("Gzip").finish(),
-            Self::Brotli(_arg0) => f.debug_tuple("Brotli").finish(),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(_arg0) => f.debug_tuple("Zstandard").finish(),
-            Self::None => write!(f, "None"),
-        }
-    }
-}
-
-impl<R: BufRead> Decoder<R> {
-    fn get_ref(&self) -> &R {
-        match self {
-            Self::Identity(r) => r,
-            Self::Deflate(codec) => codec.get_ref(),
-            Self::Gzip(codec) => codec.get_ref(),
-            Self::Brotli(codec) => codec.get_ref(),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(codec) => codec.get_ref(),
-            Self::None => unreachable!(),
-        }
-    }
-
-    fn get_mut(&mut self) -> &mut R {
-        match self {
-            Self::Identity(r) => r,
-            Self::Deflate(codec) => codec.get_mut(),
-            Self::Gzip(codec) => codec.get_mut(),
-            Self::Brotli(codec) => codec.get_mut(),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(codec) => codec.get_mut(),
-            Self::None => unreachable!(),
-        }
-    }
-
-    fn into_inner(self) -> R {
-        match self {
-            Self::Identity(r) => r,
-            Self::Deflate(codec) => codec.into_inner(),
-            Self::Gzip(codec) => codec.into_inner(),
-            Self::Brotli(codec) => codec.into_inner(),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(codec) => codec.finish(),
-            Self::None => unreachable!(),
-        }
-    }
-}
-
-impl<R: BufRead> Read for Decoder<R> {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        match self {
-            Decoder::Identity(r) => r.read(buf),
-            Decoder::Deflate(codec) => codec.read(buf),
-            Decoder::Gzip(codec) => codec.read(buf),
-            Decoder::Brotli(codec) => codec.read(buf),
-            #[cfg(feature = "zstd")]
-            Decoder::Zstandard(codec) => codec.read(buf),
-            Decoder::None => unreachable!(),
-        }
-    }
+#[derive(Debug, Clone, Default)]
+pub struct DecompressorConfig {
+    pub format: Format,
+    pub dictionary: Dictionary,
 }
 
 /// Decoder for decompressing streams.
 #[derive(Debug)]
 pub struct Decompressor<R: BufRead> {
     decoder: Decoder<R>,
-    format: Format,
+    config: DecompressorConfig,
 }
 
 impl<R: BufRead> Decompressor<R> {
-    /// Create a decompressor.for reading compressed data from the given reader.
+    /// Create a decompressor for reading compressed data from the given reader.
     pub fn new(source: R, format: Format) -> std::io::Result<Self> {
-        Ok(Self {
-            decoder: create_decoder(source, format)?,
+        let config = DecompressorConfig {
             format,
+            ..Default::default()
+        };
+        Self::with_config(source, config)
+    }
+
+    /// [Create](Self::new()) a decompressor with a configuration.
+    pub fn with_config(source: R, config: DecompressorConfig) -> std::io::Result<Self> {
+        Ok(Self {
+            decoder: Decoder::new(source, config.format, &config.dictionary)?,
+            config,
         })
     }
 
@@ -396,18 +249,34 @@ impl<R: BufRead> Decompressor<R> {
 
     /// Prepares the codec for reading a new stream.
     ///
-    /// This function is only to be used for multistream codecs.
-    pub fn restart_stream(&mut self) -> std::io::Result<()> {
-        let decoder = std::mem::replace(&mut self.decoder, Decoder::None);
-        let source = decoder.into_inner();
-        self.decoder = create_decoder(source, self.format)?;
+    /// This function has effect for only codecs that support concatenation.
+    /// If configured with a dictionary, it will be reused. It should only
+    /// be called at the end of decompressing a segment. The end of a segment
+    /// is indicated by 0 bytes returned when reading from this struct.
+    pub fn start_next_segment(&mut self) -> std::io::Result<()> {
+        match self.config.format {
+            Format::Gzip => {
+                let decoder = std::mem::replace(&mut self.decoder, Decoder::None);
+                let source = decoder.into_inner();
+                self.decoder = Decoder::new(source, self.config.format, &self.config.dictionary)?;
+            }
+            #[cfg(feature = "zstd")]
+            Format::Zstandard => {
+                if let Decoder::Zstandard(decoder) = &mut self.decoder {
+                    decoder.start_next_frame()?;
+                }
+            }
+            _ => {}
+        }
 
         Ok(())
     }
 
     /// Returns if any data is left to be read.
     ///
-    /// This function is intended for use with multistream codecs.
+    /// This function is intended for use with codecs that support
+    /// concatenation. If there is nothing read but there is data remaining,
+    /// then the next segment can be decompressed.
     pub fn has_data_left(&mut self) -> std::io::Result<bool> {
         let buf = self.decoder.get_mut().fill_buf()?;
         Ok(!buf.is_empty())
@@ -420,100 +289,6 @@ impl<R: BufRead> Read for Decompressor<R> {
     }
 }
 
-enum PushDecoder<W: Write> {
-    Identity(W),
-    Deflate(ZlibPushDecoder<W>),
-    Gzip(GzPushDecoder<W>),
-    Brotli(Box<BrPushDecoder<W>>),
-    #[cfg(feature = "zstd")]
-    Zstandard(ZstdPushDecoder<'static, W>),
-    None,
-}
-
-impl<W: Write> Debug for PushDecoder<W> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Identity(_arg0) => f.debug_tuple("Identity").finish(),
-            Self::Deflate(_arg0) => f.debug_tuple("Deflate").finish(),
-            Self::Gzip(_arg0) => f.debug_tuple("Gzip").finish(),
-            Self::Brotli(_arg0) => f.debug_tuple("Brotli").finish(),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(_arg0) => f.debug_tuple("Zstandard").finish(),
-            Self::None => write!(f, "None"),
-        }
-    }
-}
-
-impl<W: Write> PushDecoder<W> {
-    fn get_ref(&self) -> &W {
-        match self {
-            Self::Identity(v) => v,
-            Self::Deflate(codec) => codec.get_ref(),
-            Self::Gzip(codec) => codec.get_ref(),
-            Self::Brotli(codec) => codec.get_ref(),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(codec) => codec.get_ref(),
-            Self::None => unreachable!(),
-        }
-    }
-
-    fn get_mut(&mut self) -> &mut W {
-        match self {
-            Self::Identity(v) => v,
-            Self::Deflate(codec) => codec.get_mut(),
-            Self::Gzip(codec) => codec.get_mut(),
-            Self::Brotli(codec) => codec.get_mut(),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(codec) => codec.get_mut(),
-            Self::None => unreachable!(),
-        }
-    }
-
-    fn into_inner(self) -> std::io::Result<W> {
-        match self {
-            Self::Identity(v) => Ok(v),
-            Self::Deflate(codec) => codec.finish(),
-            Self::Gzip(codec) => codec.finish(),
-            Self::Brotli(mut codec) => {
-                codec.close()?;
-                match codec.into_inner() {
-                    Ok(v) => Ok(v),
-                    Err(v) => Ok(v),
-                }
-            }
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(codec) => Ok(codec.into_inner()),
-            Self::None => unreachable!(),
-        }
-    }
-}
-
-impl<W: Write> Write for PushDecoder<W> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        match self {
-            Self::Identity(w) => w.write(buf),
-            Self::Deflate(w) => w.write(buf),
-            Self::Gzip(w) => w.write(buf),
-            Self::Brotli(w) => w.write(buf),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(w) => w.write(buf),
-            Self::None => unreachable!(),
-        }
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        match self {
-            Self::Identity(w) => w.flush(),
-            Self::Deflate(w) => w.flush(),
-            Self::Gzip(w) => w.flush(),
-            Self::Brotli(w) => w.flush(),
-            #[cfg(feature = "zstd")]
-            Self::Zstandard(w) => w.flush(),
-            Self::None => unreachable!(),
-        }
-    }
-}
-
 /// Push-based decoder for decompressing streams.
 ///
 /// This is similar to [`Decompressor`] except that the user is responsible for
@@ -521,15 +296,24 @@ impl<W: Write> Write for PushDecoder<W> {
 #[derive(Debug)]
 pub struct PushDecompressor<W: Write> {
     decoder: PushDecoder<W>,
-    format: Format,
+    config: DecompressorConfig,
 }
 
 impl<W: Write> PushDecompressor<W> {
-    /// Create a decompressor.for writing the decompressed data.
+    /// Create a decompressor for writing the decompressed data.
     pub fn new(output: W, format: Format) -> std::io::Result<Self> {
-        Ok(Self {
-            decoder: create_push_decoder(output, format)?,
+        let config = DecompressorConfig {
             format,
+            ..Default::default()
+        };
+        Self::with_config(output, config)
+    }
+
+    /// [Create](Self::new()) a decompressor with the given configuration.
+    pub fn with_config(output: W, config: DecompressorConfig) -> std::io::Result<Self> {
+        Ok(Self {
+            decoder: PushDecoder::new(output, config.format, &config.dictionary)?,
+            config,
         })
     }
 
@@ -550,11 +334,25 @@ impl<W: Write> PushDecompressor<W> {
 
     /// Prepares the codec for reading a new stream.
     ///
-    /// This function is only to be used for multistream codecs.
-    pub fn restart_stream(&mut self) -> std::io::Result<()> {
-        let decoder = std::mem::replace(&mut self.decoder, PushDecoder::None);
-        let dest = decoder.into_inner()?;
-        self.decoder = create_push_decoder(dest, self.format)?;
+    /// This function has effect for only codecs that support concatenation.
+    /// If configured with a dictionary, it will be reused. It should only
+    /// be called at the end of decompressing a segment. The end of a segment
+    /// is indicated by 0 bytes written when writing to this struct.
+    pub fn start_next_segment(&mut self) -> std::io::Result<()> {
+        match self.config.format {
+            Format::Gzip => {
+                let decoder = std::mem::replace(&mut self.decoder, PushDecoder::None);
+                let dest = decoder.into_inner()?;
+                self.decoder = PushDecoder::new(dest, self.config.format, &self.config.dictionary)?;
+            }
+            #[cfg(feature = "zstd")]
+            Format::Zstandard => {
+                if let PushDecoder::Zstandard(decoder) = &mut self.decoder {
+                    decoder.start_next_frame()?;
+                }
+            }
+            _ => {}
+        }
 
         Ok(())
     }
@@ -570,73 +368,63 @@ impl<W: Write> Write for PushDecompressor<W> {
     }
 }
 
-fn get_encoder_level(format: Format, level: Level) -> i32 {
-    match format {
-        Format::Identity => match level {
-            Level::Balanced => 0,
-            Level::High => 0,
-            Level::Low => 0,
-        },
-        Format::Deflate | Format::Gzip => match level {
-            Level::Balanced => 6,
-            Level::High => 9,
-            Level::Low => 1,
-        },
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum Dictionary {
+    /// No dictionary.
+    None,
+    /// Zstandard formatted dictionary supplied as a detached file.
+    Zstd(Vec<u8>),
+    /// Zstandard formatted dictionary embedded in a skippable frame.
+    ///
+    /// The dictionary is optionally compressed with Zstandard.
+    ///
+    /// For decompression, provide an empty Vec for the ".warc.zst"
+    /// dictionary.
+    WarcZstd(Vec<u8>),
+}
 
-        Format::Brotli => match level {
-            Level::Balanced => 4,
-            Level::High => 7,
-            Level::Low => 0,
-        },
-        #[cfg(feature = "zstd")]
-        Format::Zstandard => match level {
-            Level::Balanced => 3,
-            Level::High => 9,
-            Level::Low => 1,
-        },
+impl Dictionary {
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+
+    pub fn is_zstd(&self) -> bool {
+        matches!(self, Self::Zstd(..))
+    }
+
+    pub fn as_zstd(&self) -> Option<&Vec<u8>> {
+        if let Self::Zstd(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn is_warc_zstd(&self) -> bool {
+        matches!(self, Self::WarcZstd(..))
+    }
+
+    pub fn as_warc_zstd(&self) -> Option<&Vec<u8>> {
+        if let Self::WarcZstd(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn as_warc_zstd_mut(&mut self) -> Option<&mut Vec<u8>> {
+        if let Self::WarcZstd(v) = self {
+            Some(v)
+        } else {
+            None
+        }
     }
 }
 
-fn create_encoder<W: Write>(dest: W, format: Format, level: Level) -> Encoder<W> {
-    let level = get_encoder_level(format, level);
-
-    match format {
-        Format::Identity => Encoder::Identity(dest),
-        Format::Deflate => Encoder::Deflate(ZlibEncoder::new(
-            dest,
-            flate2::Compression::new(level as u32),
-        )),
-        Format::Gzip => Encoder::Gzip(GzEncoder::new(dest, flate2::Compression::new(level as u32))),
-        Format::Brotli => Encoder::Brotli(Box::new(BrEncoder::new(dest, 4096, level as u32, 22))),
-        #[cfg(feature = "zstd")]
-        Format::Zstandard => Encoder::Zstandard(ZstdEncoder::new(dest, level).unwrap()),
-    }
-}
-
-fn create_decoder<R: BufRead>(source: R, format: Format) -> std::io::Result<Decoder<R>> {
-    match format {
-        Format::Identity => Ok(Decoder::Identity(source)),
-        Format::Deflate => Ok(Decoder::Deflate(ZlibDecoder::new(source))),
-        Format::Gzip => Ok(Decoder::Gzip(GzDecoder::new(source))),
-        Format::Brotli => Ok(Decoder::Brotli(Box::new(BrDecoder::new(source, 4096)))),
-        #[cfg(feature = "zstd")]
-        Format::Zstandard => Ok(Decoder::Zstandard(
-            ZstdDecoder::with_buffer(source)?.single_frame(),
-        )),
-    }
-}
-
-fn create_push_decoder<W: Write>(dest: W, format: Format) -> std::io::Result<PushDecoder<W>> {
-    match format {
-        Format::Identity => Ok(PushDecoder::Identity(dest)),
-        Format::Deflate => Ok(PushDecoder::Deflate(ZlibPushDecoder::new(dest))),
-        Format::Gzip => Ok(PushDecoder::Gzip(GzPushDecoder::new(dest))),
-        Format::Brotli => Ok(PushDecoder::Brotli(Box::new(BrPushDecoder::new(
-            dest, 4096,
-        )))),
-        // FIXME: no single frame option
-        #[cfg(feature = "zstd")]
-        Format::Zstandard => Ok(PushDecoder::Zstandard(ZstdPushDecoder::new(dest)?)),
+impl Default for Dictionary {
+    fn default() -> Self {
+        Self::None
     }
 }
 
@@ -691,7 +479,7 @@ mod tests {
         let mut c = Compressor::new(buf, Format::Gzip);
 
         c.write_all(b"Hello").unwrap();
-        c.restart_stream().unwrap();
+        c.start_new_segment().unwrap();
         c.write_all(b"world").unwrap();
 
         let buf = c.finish().unwrap();
@@ -705,7 +493,7 @@ mod tests {
         assert!(d.has_data_left().unwrap());
 
         buf.clear();
-        d.restart_stream().unwrap();
+        d.start_next_segment().unwrap();
         d.read_to_end(&mut buf).unwrap();
         assert_eq!(&buf, b"world");
         assert!(!d.has_data_left().unwrap());

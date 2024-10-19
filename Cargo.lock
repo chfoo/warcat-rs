@@ -2393,9 +2393,9 @@ dependencies = [
 
 [[package]]
 name = "takecrate"
-version = "0.2.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df894985bd22f497be8ebc8bb906fc90b2af26e5b529cf8f29c7a023b0a54e31"
+checksum = "76d6b84a98e00f0544edb3b9b8e7e9d53ce53b1811ab3033b52e9fac04ba473a"
 dependencies = [
  "crc32c",
  "cursive",

@@ -2,6 +2,7 @@ use std::io::{Read, Write};
 
 use crate::{
     app::export::Exporter,
+    compress::{Dictionary, Format},
     dataseq::SeqWriter,
     error::{ProtocolError, ProtocolErrorKind},
     extract::WarcExtractor,
@@ -9,7 +10,10 @@ use crate::{
     warc::{Decoder, DecoderConfig},
 };
 
-use super::arg::{GetCommand, GetExportSubcommand, GetExtractSubcommand, GetSubcommand};
+use super::{
+    arg::{GetCommand, GetExportSubcommand, GetExtractSubcommand, GetSubcommand},
+    io::ProgramInput,
+};
 
 pub fn get(args: &GetCommand) -> anyhow::Result<()> {
     match &args.subcommand {
@@ -17,6 +21,8 @@ pub fn get(args: &GetCommand) -> anyhow::Result<()> {
         GetSubcommand::Extract(sub_args) => extract(sub_args),
     }
 }
+
+// FIXME: refactor the copypaste boilerplate
 
 fn export(args: &GetExportSubcommand) -> anyhow::Result<()> {
     let input_path = &args.input;
@@ -33,14 +39,16 @@ fn export(args: &GetExportSubcommand) -> anyhow::Result<()> {
     let seq_format = args.format.into();
     let writer = SeqWriter::new(output, seq_format);
 
+    let mut exporter = Exporter::new(input_path, writer, args.no_block, args.extract);
+
+    let mut config = DecoderConfig::default();
+    config.decompressor.format = compression_format;
+    config.decompressor.dictionary = get_dictionary(compression_format, &mut input)?;
+
     if args.position != 0 {
-        // This seek won't work for zstd with a dictionary stored in a skippable frame
         input.seek_absolute(args.position)?;
     }
 
-    let mut exporter = Exporter::new(input_path, writer, args.no_block, args.extract);
-
-    let config = DecoderConfig { compression_format };
     let decoder = Decoder::new(input, config)?;
 
     let (header, mut decoder) = decoder.read_header()?;
@@ -96,14 +104,16 @@ fn extract(args: &GetExtractSubcommand) -> anyhow::Result<()> {
 
     let compression_format = args.compression.try_into_native(input_path)?;
 
+    let mut extractor = WarcExtractor::new();
+
+    let mut config = DecoderConfig::default();
+    config.decompressor.format = compression_format;
+    config.decompressor.dictionary = get_dictionary(compression_format, &mut input)?;
+
     if args.position != 0 {
-        // This seek won't work for zstd with a dictionary stored in a skippable frame
         input.seek_absolute(args.position)?;
     }
 
-    let mut extractor = WarcExtractor::new();
-
-    let config = DecoderConfig { compression_format };
     let decoder = Decoder::new(input, config)?;
 
     let (header, mut decoder) = decoder.read_header()?;
@@ -148,4 +158,13 @@ fn extract(args: &GetExtractSubcommand) -> anyhow::Result<()> {
     super::progress::global_progress_bar().remove(&progress_bar);
 
     Ok(())
+}
+
+fn get_dictionary(format: Format, input: &mut ProgramInput) -> std::io::Result<Dictionary> {
+    #[cfg(feature = "zstd")]
+    if format == Format::Zstandard {
+        let dict = crate::compress::zstd::extract_warc_zst_dictionary(input)?;
+        return Ok(Dictionary::Zstd(dict));
+    }
+    Ok(Dictionary::None)
 }

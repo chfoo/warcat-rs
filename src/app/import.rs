@@ -3,7 +3,7 @@ use std::io::Write;
 use indicatif::ProgressBar;
 
 use crate::{
-    compress::{Format, Level},
+    compress::{CompressorConfig, Format, Level},
     dataseq::{SeqFormat, SeqReader},
     digest::{AlgorithmName, MultiHasher},
     header::WarcHeader,
@@ -72,8 +72,11 @@ impl Importer {
     ) -> anyhow::Result<Self> {
         let progress_bar = super::progress::make_bytes_progress_bar(file_len);
         let config = EncoderConfig {
-            compression,
-            compression_level,
+            compressor: CompressorConfig {
+                format: compression,
+                level: compression_level,
+                ..Default::default()
+            },
         };
         let output = Encoder::new(output, config);
 

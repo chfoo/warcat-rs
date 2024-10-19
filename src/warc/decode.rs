@@ -5,20 +5,21 @@ use std::{
 };
 
 use crate::{
-    compress::{Format, PushDecompressor},
+    compress::{DecompressorConfig, PushDecompressor},
     error::{GeneralError, ProtocolError, ProtocolErrorKind},
     header::WarcHeader,
     io::LogicalPosition,
 };
 
-const BUFFER_LENGTH: usize = 4096;
+const BUFFER_LENGTH: usize = crate::io::IO_BUFFER_LENGTH;
 const MAX_HEADER_LENGTH: usize = 32768;
 
 /// Configuration for a [`Decoder`]
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct DecoderConfig {
-    /// Compression format of the file to be read
-    pub compression_format: Format,
+    /// Compression configuration of the file to be read
+    pub decompressor: DecompressorConfig,
 }
 
 #[derive(Debug)]
@@ -350,7 +351,8 @@ pub struct PushDecoder {
 impl PushDecoder {
     /// Creates a new decoder.
     pub fn new(config: DecoderConfig) -> std::io::Result<Self> {
-        let decompressor = PushDecompressor::new(VecDeque::new(), config.compression_format)?;
+        let decompressor =
+            PushDecompressor::with_config(VecDeque::new(), config.decompressor.clone())?;
 
         Ok(Self {
             config,
@@ -544,10 +546,16 @@ impl PushDecoder {
     }
 
     fn reset_for_next_record(&mut self) -> Result<(), GeneralError> {
-        if self.config.compression_format.is_multistream() && self.decompressor.get_ref().is_empty()
+        // dbg!(String::from_utf8_lossy(self.decompressor.get_ref().as_slices().0));
+        // dbg!(String::from_utf8_lossy(self.decompressor.get_ref().as_slices().1));
+
+        if self.config.decompressor.format.supports_concatenation()
+            && self.decompressor.get_ref().is_empty()
         {
-            self.decompressor.restart_stream()?;
-        } else if self.config.compression_format.is_multistream() && !self.has_rat_comp_fault {
+            self.decompressor.start_next_segment()?;
+        } else if self.config.decompressor.format.supports_concatenation()
+            && !self.has_rat_comp_fault
+        {
             tracing::warn!("file is not using Record-at-time compression");
             self.has_rat_comp_fault = true;
         }
@@ -602,6 +610,8 @@ impl Write for PushDecoder {
         tracing::trace!(buf_len = buf.len(), write_len, "push decoder write");
 
         if write_len != 0 {
+            // FIXME: handle the case where a single record is compressed as
+            // several zstd frames
             self.bytes_consumed += write_len as u64;
             Ok(write_len)
         } else {

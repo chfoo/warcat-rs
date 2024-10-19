@@ -3,20 +3,38 @@ use std::io::Write;
 use rand::{Rng, RngCore};
 use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256PlusPlus};
 use warcat::{
+    compress::Dictionary,
     digest::{AlgorithmName, Digest, Hasher},
     header::WarcHeader,
-    warc::{Encoder, EncoderConfig},
+    warc::{EncStateHeader, Encoder, EncoderConfig},
 };
 
 pub fn generate_warc_gzip() -> Vec<u8> {
-    let mut output = Vec::new();
+    let mut config = EncoderConfig::default();
+    config.compressor.format = warcat::compress::Format::Gzip;
+    let encoder = Encoder::new(Vec::new(), config);
 
-    let config = EncoderConfig {
-        compression: warcat::compress::Format::Gzip,
-        ..Default::default()
-    };
-    let mut encoder = Encoder::new(&mut output, config);
+    generate(encoder)
+}
 
+#[cfg(feature = "zstd")]
+pub fn generate_warc_zst() -> Vec<u8> {
+    let mut sample = vec![0; 10000];
+    let mut rng = Xoshiro256PlusPlus::seed_from_u64(1234567);
+    rng.fill_bytes(&mut sample);
+    let sizes = [100usize; 100];
+
+    let dictionary = zstd::dict::from_continuous(&sample, &sizes, 10000).unwrap();
+
+    let mut config = EncoderConfig::default();
+    config.compressor.format = warcat::compress::Format::Zstandard;
+    config.compressor.dictionary = Dictionary::WarcZstd(dictionary);
+    let encoder = Encoder::new(Vec::new(), config);
+
+    generate(encoder)
+}
+
+fn generate(mut encoder: Encoder<EncStateHeader, Vec<u8>>) -> Vec<u8> {
     for round in 0..100 {
         let mut rng = Xoshiro256PlusPlus::seed_from_u64(round);
 
@@ -43,7 +61,5 @@ pub fn generate_warc_gzip() -> Vec<u8> {
         encoder = block_encoder.finish_block().unwrap();
     }
 
-    encoder.finish().unwrap();
-
-    output
+    encoder.finish().unwrap()
 }

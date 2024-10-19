@@ -1,6 +1,10 @@
 use std::io::{Cursor, Read};
 
-use warcat::{verify::Verifier, warc::{Decoder, DecoderConfig}};
+use warcat::{
+    compress::Dictionary,
+    verify::Verifier,
+    warc::{DecStateHeader, Decoder, DecoderConfig},
+};
 
 mod warc_generator;
 
@@ -9,10 +13,30 @@ mod warc_generator;
 fn test_decode_gzip() {
     let input = warc_generator::generate_warc_gzip();
 
-    let config = DecoderConfig {
-        compression_format: warcat::compress::Format::Gzip,
-    };
-    let mut decoder = Decoder::new(Cursor::new(&input), config).unwrap();
+    let mut config = DecoderConfig::default();
+    config.decompressor.format = warcat::compress::Format::Gzip;
+
+    let decoder = Decoder::new(Cursor::new(input), config).unwrap();
+
+    check_decode(decoder);
+}
+
+#[cfg(feature = "zstd")]
+#[tracing_test::traced_test]
+#[test]
+fn test_decode_zst() {
+    let input = warc_generator::generate_warc_zst();
+
+    let mut config = DecoderConfig::default();
+    config.decompressor.format = warcat::compress::Format::Zstandard;
+    config.decompressor.dictionary = Dictionary::WarcZstd(Vec::new());
+
+    let decoder = Decoder::new(Cursor::new(input), config).unwrap();
+
+    check_decode(decoder);
+}
+
+fn check_decode(mut decoder: Decoder<DecStateHeader, Cursor<Vec<u8>>>) {
     let mut verifier = Verifier::new();
 
     while decoder.has_next_record().unwrap() {

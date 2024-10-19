@@ -2,9 +2,7 @@
 
 ## Current work
 
-* Rewrite WARC decoder using sans-IO principle
-* Better decompressors API
-* Find workarounds for Zstd library issues (see compress.rs)
+* Testing of Zstd support
 
 ## Planned future features
 

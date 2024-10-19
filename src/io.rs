@@ -1,7 +1,7 @@
 //! IO utilities
 use std::io::{BufRead, Read, Write};
 
-const IO_BUFFER_LENGTH: usize = 4096;
+pub(crate) const IO_BUFFER_LENGTH: usize = 4096;
 
 /// Indicate position in the stream
 pub trait LogicalPosition {

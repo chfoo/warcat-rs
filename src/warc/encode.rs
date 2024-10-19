@@ -2,18 +2,17 @@
 use std::io::{BufWriter, Write};
 
 use crate::{
-    compress::{Compressor, Format, Level},
+    compress::{Compressor, CompressorConfig},
     error::GeneralError,
     header::WarcHeader,
 };
 
 /// Configuration for a [`Encoder`].
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct EncoderConfig {
-    /// Format for compressing the written file
-    pub compression: Format,
-    /// Compression level
-    pub compression_level: Level,
+    /// Configuration for compressing the written file
+    pub compressor: CompressorConfig,
 }
 
 pub struct EncStateHeader;
@@ -45,7 +44,7 @@ impl<W: Write> Encoder<EncStateHeader, W> {
     /// The destination writer should not be a compression stream. To enable
     /// compression, you must configure it with [`EncoderConfig`].
     pub fn new(dest: W, config: EncoderConfig) -> Self {
-        let output = Compressor::with_level(dest, config.compression, config.compression_level);
+        let output = Compressor::with_config(dest, config.compressor.clone());
 
         Self {
             state: EncStateHeader,
@@ -109,7 +108,7 @@ impl<W: Write> Encoder<EncStateBlock, W> {
     fn write_finish_block(&mut self) -> std::io::Result<()> {
         self.output.write_all(b"\r\n\r\n")?;
         self.output.flush()?;
-        self.output.get_mut().restart_stream()?;
+        self.output.get_mut().start_new_segment()?;
         Ok(())
     }
 

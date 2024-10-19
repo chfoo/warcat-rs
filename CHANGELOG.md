@@ -5,9 +5,11 @@
 * Fixed: false positive Payload Digest problem during verify for "revisit" records.
 * Added: Get command for exporting/extracting single records.
 * Added: Record-at-time compression check to verify.
+* Added: Zstandard (.warc.zst) support.
 
 ### Library
 
+* Changed: `compress`: structs now take a configuration, renamed function for reading concatenated members
 * Added `warc::PushDecoder`.
 
 ## 0.2.0 (2024-10-12)

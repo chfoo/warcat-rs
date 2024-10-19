@@ -4,13 +4,15 @@ use anyhow::Context;
 use indicatif::ProgressBar;
 
 use crate::{
-    compress::Format,
+    compress::{Dictionary, Format},
     header::WarcHeader,
     io::LogicalPosition,
     warc::{DecStateBlock, DecStateHeader, Decoder, DecoderConfig},
 };
 
 use super::io::{ProgramInput, ProgramOutput};
+
+const BUFFER_LENGTH: usize = crate::io::IO_BUFFER_LENGTH;
 
 pub fn open_input(path: &Path) -> anyhow::Result<ProgramInput> {
     ProgramInput::open(path).context("opening input file failed")
@@ -84,7 +86,10 @@ where
     ) -> anyhow::Result<Self> {
         let progress_bar = super::progress::make_bytes_progress_bar(file_len);
 
-        let config = DecoderConfig { compression_format };
+        let mut config = DecoderConfig::default();
+        config.decompressor.format = compression_format;
+        config.decompressor.dictionary = Dictionary::WarcZstd(Vec::new());
+
         let reader = Decoder::new(input, config)?;
 
         Ok(Self {
@@ -148,7 +153,7 @@ where
         let mut reader = self.state.take().try_into_block().unwrap();
 
         loop {
-            self.buf.resize(4096, 0);
+            self.buf.resize(BUFFER_LENGTH, 0);
 
             let read_length = reader.read(&mut self.buf)?;
             self.buf.truncate(read_length);
