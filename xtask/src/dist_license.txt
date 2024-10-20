@@ -136,7 +136,7 @@ Repository:
     https://github.com/rust-cli/anstyle.git
 
 
-anyhow 1.0.88
+anyhow 1.0.89
 -----
 
 Authors:
@@ -174,6 +174,17 @@ base64 0.21.7
 
 Authors:
     Alice Maz <alice@alicemaz.com>
+    Marshall Pierce <marshall@mpierce.org>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/marshallpierce/rust-base64
+
+
+base64 0.22.1
+-----
+
+Authors:
     Marshall Pierce <marshall@mpierce.org>
 License:
     Apache-2.0 OR MIT
@@ -226,14 +237,14 @@ Repository:
     https://github.com/RustCrypto/utils
 
 
-brotli 6.0.0
+brotli 7.0.0
 -----
 
 Authors:
     Daniel Reiter Horn <danielrh@dropbox.com>
     The Brotli Authors
 License:
-    BSD-3-Clause OR MIT
+    BSD-3-Clause AND MIT
 Repository:
     https://github.com/dropbox/rust-brotli
 
@@ -349,7 +360,7 @@ Repository:
     https://github.com/enarx/ciborium
 
 
-clap 4.5.17
+clap 4.5.20
 -----
 
 Authors:
@@ -371,7 +382,7 @@ Repository:
     https://github.com/ConnorGray/clap-markdown
 
 
-clap_builder 4.5.17
+clap_builder 4.5.20
 -----
 
 Authors:
@@ -382,7 +393,7 @@ Repository:
     https://github.com/clap-rs/clap
 
 
-clap_derive 4.5.13
+clap_derive 4.5.18
 -----
 
 Authors:
@@ -768,6 +779,17 @@ Repository:
     https://github.com/Lymia/enumset
 
 
+equivalent 1.0.1
+-----
+
+Authors:
+    <unknown>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/cuviper/equivalent
+
+
 errno 0.3.9
 -----
 
@@ -790,7 +812,7 @@ Repository:
     https://github.com/smol-rs/fastrand
 
 
-flate2 1.0.33
+flate2 1.0.34
 -----
 
 Authors:
@@ -937,6 +959,28 @@ Repository:
     https://github.com/starkat99/half-rs
 
 
+hashbrown 0.12.3
+-----
+
+Authors:
+    Amanieu d'Antras <amanieu@gmail.com>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/rust-lang/hashbrown
+
+
+hashbrown 0.15.0
+-----
+
+Authors:
+    Amanieu d'Antras <amanieu@gmail.com>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/rust-lang/hashbrown
+
+
 heck 0.5.0
 -----
 
@@ -970,7 +1014,7 @@ Repository:
     https://github.com/KokaKiwi/rust-hex
 
 
-iana-time-zone 0.1.60
+iana-time-zone 0.1.61
 -----
 
 Authors:
@@ -1025,6 +1069,28 @@ License:
     MIT OR Unlicense
 Repository:
     https://github.com/BurntSushi/ripgrep/tree/master/crates/ignore
+
+
+indexmap 1.9.3
+-----
+
+Authors:
+    <unknown>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/bluss/indexmap
+
+
+indexmap 2.6.0
+-----
+
+Authors:
+    <unknown>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/indexmap-rs/indexmap
 
 
 indicatif 0.17.8
@@ -1095,7 +1161,7 @@ Repository:
     https://github.com/dtolnay/itoa
 
 
-js-sys 0.3.70
+js-sys 0.3.72
 -----
 
 Authors:
@@ -1366,7 +1432,7 @@ Repository:
     https://github.com/ogham/rust-number-prefix
 
 
-once_cell 1.20.0
+once_cell 1.20.2
 -----
 
 Authors:
@@ -1432,7 +1498,7 @@ Repository:
     https://github.com/taiki-e/pin-project-lite
 
 
-portable-atomic 1.7.0
+portable-atomic 1.9.0
 -----
 
 Authors:
@@ -1465,7 +1531,7 @@ Repository:
     https://github.com/dtolnay/proc-macro-hack
 
 
-proc-macro2 1.0.86
+proc-macro2 1.0.87
 -----
 
 Authors:
@@ -1488,7 +1554,7 @@ Repository:
     https://github.com/dtolnay/quote
 
 
-redb 2.1.3
+redb 2.1.4
 -----
 
 Authors:
@@ -1510,7 +1576,7 @@ Repository:
     https://gitlab.redox-os.org/redox-os/syscall
 
 
-regex 1.10.6
+regex 1.11.0
 -----
 
 Authors:
@@ -1533,7 +1599,7 @@ Repository:
     https://github.com/BurntSushi/regex-automata
 
 
-regex-automata 0.4.7
+regex-automata 0.4.8
 -----
 
 Authors:
@@ -1556,7 +1622,7 @@ Repository:
     https://github.com/rust-lang/regex
 
 
-regex-syntax 0.8.4
+regex-syntax 0.8.5
 -----
 
 Authors:
@@ -1605,7 +1671,7 @@ Repository:
     https://github.com/bytecodealliance/rustix
 
 
-rustversion 1.0.17
+rustversion 1.0.18
 -----
 
 Authors:
@@ -1694,28 +1760,6 @@ Repository:
     https://github.com/serde-rs/serde
 
 
-serde-bytes-repr 0.2.0
------
-
-Authors:
-    cfsamson <cf@samson.no>
-License:
-    MIT
-Repository:
-    https://github.com/cfsamson/rfi-serde-byte-repr
-
-
-serde_bytes 0.11.15
------
-
-Authors:
-    David Tolnay <dtolnay@gmail.com>
-License:
-    Apache-2.0 OR MIT
-Repository:
-    https://github.com/serde-rs/bytes
-
-
 serde_derive 1.0.210
 -----
 
@@ -1738,6 +1782,29 @@ License:
     Apache-2.0 OR MIT
 Repository:
     https://github.com/serde-rs/json
+
+
+serde_with 3.11.0
+-----
+
+Authors:
+    Jonas Bushart
+    Marcin Kaźmierczak
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/jonasbb/serde_with/
+
+
+serde_with_macros 3.11.0
+-----
+
+Authors:
+    Jonas Bushart
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/jonasbb/serde_with/
 
 
 sha1 0.10.6
@@ -1890,7 +1957,7 @@ Repository:
     https://github.com/dalek-cryptography/subtle
 
 
-syn 2.0.77
+syn 2.0.79
 -----
 
 Authors:
@@ -1912,7 +1979,7 @@ Repository:
     https://github.com/1Password/sys-locale
 
 
-takecrate 0.2.1
+takecrate 1.0.0
 -----
 
 Authors:
@@ -2177,7 +2244,7 @@ Repository:
     https://github.com/zbraniecki/unic-locale
 
 
-unicode-bidi 0.3.15
+unicode-bidi 0.3.17
 -----
 
 Authors:
@@ -2223,7 +2290,7 @@ Repository:
     https://github.com/unicode-rs/unicode-segmentation
 
 
-unicode-width 0.1.13
+unicode-width 0.1.14
 -----
 
 Authors:
@@ -2293,7 +2360,7 @@ Repository:
     https://github.com/BurntSushi/walkdir
 
 
-warcat 0.1.0
+warcat 0.2.0
 -----
 
 Authors:
@@ -2315,7 +2382,7 @@ Repository:
     https://github.com/bytecodealliance/wasi
 
 
-wasm-bindgen 0.2.93
+wasm-bindgen 0.2.95
 -----
 
 Authors:
@@ -2326,7 +2393,7 @@ Repository:
     https://github.com/rustwasm/wasm-bindgen
 
 
-wasm-bindgen-backend 0.2.93
+wasm-bindgen-backend 0.2.95
 -----
 
 Authors:
@@ -2337,7 +2404,7 @@ Repository:
     https://github.com/rustwasm/wasm-bindgen/tree/master/crates/backend
 
 
-wasm-bindgen-macro 0.2.93
+wasm-bindgen-macro 0.2.95
 -----
 
 Authors:
@@ -2348,7 +2415,7 @@ Repository:
     https://github.com/rustwasm/wasm-bindgen/tree/master/crates/macro
 
 
-wasm-bindgen-macro-support 0.2.93
+wasm-bindgen-macro-support 0.2.95
 -----
 
 Authors:
@@ -2359,7 +2426,7 @@ Repository:
     https://github.com/rustwasm/wasm-bindgen/tree/master/crates/macro-support
 
 
-wasm-bindgen-shared 0.2.93
+wasm-bindgen-shared 0.2.95
 -----
 
 Authors:
@@ -2621,5 +2688,38 @@ License:
     Apache-2.0 OR BSD-2-Clause OR MIT
 Repository:
     https://github.com/google/zerocopy
+
+
+zstd 0.13.2
+-----
+
+Authors:
+    Alexandre Bury <alexandre.bury@gmail.com>
+License:
+    MIT
+Repository:
+    https://github.com/gyscos/zstd-rs
+
+
+zstd-safe 7.2.1
+-----
+
+Authors:
+    Alexandre Bury <alexandre.bury@gmail.com>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/gyscos/zstd-rs
+
+
+zstd-sys 2.0.13+zstd.1.5.6
+-----
+
+Authors:
+    Alexandre Bury <alexandre.bury@gmail.com>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/gyscos/zstd-rs
 
 

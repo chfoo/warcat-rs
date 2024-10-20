@@ -278,6 +278,7 @@ pub struct VerifyCommand {
     pub exclude_check: Vec<VerifyCheck>,
 
     /// Database filename for storing temporary intermediate data.
+    #[clap(long)]
     pub database: Option<PathBuf>,
 }
 
@@ -334,9 +335,9 @@ pub enum CompressionFormat {
     Auto,
     /// No compression.
     None,
-    /// Gzip format.
+    /// Gzip format (such as ".warc.gz" files).
     Gzip,
-    /// Zstandard format.
+    /// Zstandard format (such as ".warc.zst" files).
     #[cfg(feature = "zstd")]
     Zstandard,
 }
@@ -372,14 +373,7 @@ impl TryFrom<CompressionFormat> for crate::compress::Format {
 pub enum CompressionLevel {
     /// A balance between compression ratio and resource consumption.
     Balanced,
-    /// Use a high level of resources to achieve a better compression ratio.
-    ///
-    /// This is slower and may use more memory.
-    ///
-    /// For older algorithms, this is usually the highest configuration
-    /// possible.
-    /// For modern algorithms, this uses a high, but reasonably
-    /// practical configuration.
+    /// Use a reasonably increased amount of resources to achieve a better compression ratio.
     High,
     /// Fast and low resource usage, but lower compression ratio.
     Low,
@@ -397,17 +391,14 @@ impl From<CompressionLevel> for crate::compress::Level {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum SerializationFormat {
-    /// JSON sequences (RFC 7464)
-    ///
+    /// JSON sequences (RFC 7464).
     /// Each message is a JSON object delimitated by a Record Separator (U+001E)
     /// and a Line Feed (U+000A).
     JsonSeq,
-    /// JSON Lines
-    ///
+    /// JSON Lines.
     /// Each message is a JSON object terminated by a Line Feed (U+000A).
     Jsonl,
     /// CBOR sequences (RFC 8742).
-    ///
     /// Messages are a series of consecutive CBOR data items.
     CborSeq,
 }
@@ -424,17 +415,14 @@ impl From<SerializationFormat> for crate::dataseq::SeqFormat {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum ListSerializationFormat {
-    /// JSON sequences (RFC 7464)
-    ///
+    /// JSON sequences (RFC 7464).
     /// Each message is a JSON object delimitated by a Record Separator (U+001E)
     /// and a Line Feed (U+000A).
     JsonSeq,
-    /// JSON Lines
-    ///
+    /// JSON Lines.
     /// Each message is a JSON object terminated by a Line Feed (U+000A).
     Jsonl,
     /// CBOR sequences (RFC 8742).
-    ///
     /// Messages are a series of consecutive CBOR data items.
     CborSeq,
     /// Comma separated values.

@@ -26,7 +26,6 @@ fn test_decode_gzip() {
 fn test_decode_zst() {
     let input = warc_generator::generate_warc_zst();
     dbg!(input.len());
-    std::fs::write("test_aaaaaaaa.warc.zst", &input).unwrap();
 
     let mut config = DecoderConfig::default();
     config.decompressor.format = warcat::compress::Format::Zstandard;

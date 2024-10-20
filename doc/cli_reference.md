@@ -58,7 +58,9 @@ Decodes a WARC file to messages in a easier-to-process format such as JSON
   - `none`:
     No compression
   - `gzip`:
-    Gzip format
+    Gzip format (such as ".warc.gz" files)
+  - `zstandard`:
+    Zstandard format (such as ".warc.zst" files)
 
 * `--output <OUTPUT>` — Path for the output messages
 
@@ -69,11 +71,11 @@ Decodes a WARC file to messages in a easier-to-process format such as JSON
 
   Possible values:
   - `json-seq`:
-    JSON sequences (RFC 7464)
+    JSON sequences (RFC 7464). Each message is a JSON object delimitated by a Record Separator (U+001E) and a Line Feed (U+000A)
   - `jsonl`:
-    JSON Lines
+    JSON Lines. Each message is a JSON object terminated by a Line Feed (U+000A)
   - `cbor-seq`:
-    CBOR sequences (RFC 8742)
+    CBOR sequences (RFC 8742). Messages are a series of consecutive CBOR data items
 
 * `--no-block` — Do not output block messages
 * `--extract` — Output extract messages
@@ -97,11 +99,11 @@ Encodes a WARC file from messages in a format of the `export` subcommand
 
   Possible values:
   - `json-seq`:
-    JSON sequences (RFC 7464)
+    JSON sequences (RFC 7464). Each message is a JSON object delimitated by a Record Separator (U+001E) and a Line Feed (U+000A)
   - `jsonl`:
-    JSON Lines
+    JSON Lines. Each message is a JSON object terminated by a Line Feed (U+000A)
   - `cbor-seq`:
-    CBOR sequences (RFC 8742)
+    CBOR sequences (RFC 8742). Messages are a series of consecutive CBOR data items
 
 * `--output <OUTPUT>` — Path of the output WARC file
 
@@ -116,7 +118,9 @@ Encodes a WARC file from messages in a format of the `export` subcommand
   - `none`:
     No compression
   - `gzip`:
-    Gzip format
+    Gzip format (such as ".warc.gz" files)
+  - `zstandard`:
+    Zstandard format (such as ".warc.zst" files)
 
 * `--compression-level <COMPRESSION_LEVEL>` — Level of compression for the output
 
@@ -126,7 +130,7 @@ Encodes a WARC file from messages in a format of the `export` subcommand
   - `balanced`:
     A balance between compression ratio and resource consumption
   - `high`:
-    Use a high level of resources to achieve a better compression ratio
+    Use a reasonably increased amount of resources to achieve a better compression ratio
   - `low`:
     Fast and low resource usage, but lower compression ratio
 
@@ -154,7 +158,9 @@ Provides a listing of the WARC records
   - `none`:
     No compression
   - `gzip`:
-    Gzip format
+    Gzip format (such as ".warc.gz" files)
+  - `zstandard`:
+    Zstandard format (such as ".warc.zst" files)
 
 * `--output <OUTPUT>` — Path to output listings
 
@@ -165,11 +171,11 @@ Provides a listing of the WARC records
 
   Possible values:
   - `json-seq`:
-    JSON sequences (RFC 7464)
+    JSON sequences (RFC 7464). Each message is a JSON object delimitated by a Record Separator (U+001E) and a Line Feed (U+000A)
   - `jsonl`:
-    JSON Lines
+    JSON Lines. Each message is a JSON object terminated by a Line Feed (U+000A)
   - `cbor-seq`:
-    CBOR sequences (RFC 8742)
+    CBOR sequences (RFC 8742). Messages are a series of consecutive CBOR data items
   - `csv`:
     Comma separated values
 
@@ -217,7 +223,9 @@ Output export messages
   - `none`:
     No compression
   - `gzip`:
-    Gzip format
+    Gzip format (such as ".warc.gz" files)
+  - `zstandard`:
+    Zstandard format (such as ".warc.zst" files)
 
 * `--position <POSITION>` — Position where the record is located in the input WARC file
 * `--id <ID>` — The ID of the record to extract
@@ -230,11 +238,11 @@ Output export messages
 
   Possible values:
   - `json-seq`:
-    JSON sequences (RFC 7464)
+    JSON sequences (RFC 7464). Each message is a JSON object delimitated by a Record Separator (U+001E) and a Line Feed (U+000A)
   - `jsonl`:
-    JSON Lines
+    JSON Lines. Each message is a JSON object terminated by a Line Feed (U+000A)
   - `cbor-seq`:
-    CBOR sequences (RFC 8742)
+    CBOR sequences (RFC 8742). Messages are a series of consecutive CBOR data items
 
 * `--no-block` — Do not output block messages
 * `--extract` — Output extract messages
@@ -262,7 +270,9 @@ Extract a resource
   - `none`:
     No compression
   - `gzip`:
-    Gzip format
+    Gzip format (such as ".warc.gz" files)
+  - `zstandard`:
+    Zstandard format (such as ".warc.zst" files)
 
 * `--position <POSITION>` — Position where the record is located in the input WARC file
 * `--id <ID>` — The ID of the record to extract
@@ -297,7 +307,9 @@ This operation does not automatically permit offline viewing of archived website
   - `none`:
     No compression
   - `gzip`:
-    Gzip format
+    Gzip format (such as ".warc.gz" files)
+  - `zstandard`:
+    Zstandard format (such as ".warc.zst" files)
 
 * `--output <OUTPUT>` — Path to the output directory
 
@@ -322,11 +334,7 @@ This operation does not automatically permit offline viewing of archived website
 
 Perform specification and integrity checks on WARC files
 
-**Usage:** `warcat verify [OPTIONS] [DATABASE]`
-
-###### **Arguments:**
-
-* `<DATABASE>` — Database filename for storing temporary intermediate data
+**Usage:** `warcat verify [OPTIONS]`
 
 ###### **Options:**
 
@@ -343,7 +351,9 @@ Perform specification and integrity checks on WARC files
   - `none`:
     No compression
   - `gzip`:
-    Gzip format
+    Gzip format (such as ".warc.gz" files)
+  - `zstandard`:
+    Zstandard format (such as ".warc.zst" files)
 
 * `--output <OUTPUT>` — Path to output problems
 
@@ -354,18 +364,19 @@ Perform specification and integrity checks on WARC files
 
   Possible values:
   - `json-seq`:
-    JSON sequences (RFC 7464)
+    JSON sequences (RFC 7464). Each message is a JSON object delimitated by a Record Separator (U+001E) and a Line Feed (U+000A)
   - `jsonl`:
-    JSON Lines
+    JSON Lines. Each message is a JSON object terminated by a Line Feed (U+000A)
   - `cbor-seq`:
-    CBOR sequences (RFC 8742)
+    CBOR sequences (RFC 8742). Messages are a series of consecutive CBOR data items
   - `csv`:
     Comma separated values
 
 * `--exclude-check <EXCLUDE_CHECK>` — Do not perform check
 
-  Possible values: `mandatory-fields`, `known-record-type`, `content-type`, `concurrent-to`, `block-digest`, `payload-digest`, `ip-address`, `refers-to`, `refers-to-target-uri`, `refers-to-date`, `target-uri`, `truncated`, `warcinfo-id`, `filename`, `profile`, `segment`
+  Possible values: `mandatory-fields`, `known-record-type`, `content-type`, `concurrent-to`, `block-digest`, `payload-digest`, `ip-address`, `refers-to`, `refers-to-target-uri`, `refers-to-date`, `target-uri`, `truncated`, `warcinfo-id`, `filename`, `profile`, `segment`, `record-at-time-compression`
 
+* `--database <DATABASE>` — Database filename for storing temporary intermediate data
 
 
 
