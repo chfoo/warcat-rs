@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::{Read, Seek, Write};
 
 use crate::{
     app::export::Exporter,
@@ -10,10 +10,7 @@ use crate::{
     warc::{Decoder, DecoderConfig},
 };
 
-use super::{
-    arg::{GetCommand, GetExportSubcommand, GetExtractSubcommand, GetSubcommand},
-    io::ProgramInput,
-};
+use super::arg::{GetCommand, GetExportSubcommand, GetExtractSubcommand, GetSubcommand};
 
 pub fn get(args: &GetCommand) -> anyhow::Result<()> {
     match &args.subcommand {
@@ -30,7 +27,7 @@ fn export(args: &GetExportSubcommand) -> anyhow::Result<()> {
     let span = tracing::info_span!("export", path = ?input_path);
     let _span_guard = span.enter();
 
-    let mut input = super::common::open_input(input_path)?;
+    let input = super::common::open_input(input_path)?;
     let output = super::common::open_output(output_path)?;
 
     tracing::info!("opened file");
@@ -43,13 +40,16 @@ fn export(args: &GetExportSubcommand) -> anyhow::Result<()> {
 
     let mut config = DecoderConfig::default();
     config.decompressor.format = compression_format;
-    config.decompressor.dictionary = get_dictionary(compression_format, &mut input)?;
+    config.decompressor.dictionary = get_dictionary(compression_format);
+
+    let mut decoder = Decoder::new(input, config)?;
 
     if args.position != 0 {
-        input.seek_absolute(args.position)?;
+        decoder.prepare_for_seek()?;
+        decoder
+            .get_mut()
+            .seek(std::io::SeekFrom::Start(args.position))?;
     }
-
-    let decoder = Decoder::new(input, config)?;
 
     let (header, mut decoder) = decoder.read_header()?;
 
@@ -97,7 +97,7 @@ fn extract(args: &GetExtractSubcommand) -> anyhow::Result<()> {
     let span = tracing::info_span!("export", path = ?input_path);
     let _span_guard = span.enter();
 
-    let mut input = super::common::open_input(input_path)?;
+    let input = super::common::open_input(input_path)?;
     let mut output = super::common::open_output(output_path)?;
 
     tracing::info!("opened file");
@@ -108,13 +108,16 @@ fn extract(args: &GetExtractSubcommand) -> anyhow::Result<()> {
 
     let mut config = DecoderConfig::default();
     config.decompressor.format = compression_format;
-    config.decompressor.dictionary = get_dictionary(compression_format, &mut input)?;
+    config.decompressor.dictionary = get_dictionary(compression_format);
+
+    let mut decoder = Decoder::new(input, config)?;
 
     if args.position != 0 {
-        input.seek_absolute(args.position)?;
+        decoder.prepare_for_seek()?;
+        decoder
+            .get_mut()
+            .seek(std::io::SeekFrom::Start(args.position))?;
     }
-
-    let decoder = Decoder::new(input, config)?;
 
     let (header, mut decoder) = decoder.read_header()?;
 
@@ -160,11 +163,11 @@ fn extract(args: &GetExtractSubcommand) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn get_dictionary(format: Format, input: &mut ProgramInput) -> std::io::Result<Dictionary> {
+fn get_dictionary(format: Format) -> Dictionary {
     #[cfg(feature = "zstd")]
     if format == Format::Zstandard {
-        let dict = crate::compress::zstd::extract_warc_zst_dictionary(input)?;
-        return Ok(Dictionary::Zstd(dict));
+        return Dictionary::WarcZstd(Vec::new());
     }
-    Ok(Dictionary::None)
+
+    Dictionary::None
 }

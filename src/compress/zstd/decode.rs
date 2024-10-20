@@ -10,7 +10,7 @@ use zstd::{
 
 use crate::compress::Dictionary;
 
-use super::{WARC_DICT_FRAME, ZSTD_FRAME, MAX_ONE_SHOT_SIZE};
+use super::{MAX_ONE_SHOT_SIZE, WARC_DICT_FRAME, ZSTD_FRAME};
 
 const BUFFER_LENGTH: usize = crate::io::IO_BUFFER_LENGTH;
 
@@ -26,7 +26,7 @@ enum PushDecoderState {
 pub struct ZstdPushDecoder<W: Write> {
     state: PushDecoderState,
     dictionary: Dictionary,
-    dest: W,
+    output: W,
     frame_decoder: ZstdFrameDecoder<'static>,
     magic_number: u32,
     data_length: u32,
@@ -36,14 +36,14 @@ pub struct ZstdPushDecoder<W: Write> {
 }
 
 impl<W: Write> ZstdPushDecoder<W> {
-    pub fn new(dest: W, dictionary: Dictionary) -> std::io::Result<Self> {
+    pub fn new(output: W, dictionary: Dictionary) -> std::io::Result<Self> {
         let decoder_impl = match &dictionary {
             Dictionary::Zstd(vec) => ZstdFrameDecoder::with_dictionary(vec)?,
             _ => ZstdFrameDecoder::new()?,
         };
 
         Ok(Self {
-            dest,
+            output,
             frame_decoder: decoder_impl,
             dictionary,
             state: PushDecoderState::FileHeader,
@@ -56,15 +56,15 @@ impl<W: Write> ZstdPushDecoder<W> {
     }
 
     pub fn get_ref(&self) -> &W {
-        &self.dest
+        &self.output
     }
 
     pub fn get_mut(&mut self) -> &mut W {
-        &mut self.dest
+        &mut self.output
     }
 
     pub fn into_inner(self) -> W {
-        self.dest
+        self.output
     }
 
     fn read_magic_bytes(&mut self, buf: &[u8]) -> Result<usize, usize> {
@@ -202,10 +202,21 @@ impl<W: Write> ZstdPushDecoder<W> {
         let mut input_buf = InBuffer::around(buf);
         let mut output_buf = OutBuffer::around(&mut self.frame_decoder_buf);
 
-        self.frame_decoder.run(&mut input_buf, &mut output_buf)?;
+        let next_input_len_hint = self.frame_decoder.run(&mut input_buf, &mut output_buf)?;
         let decoded_len = output_buf.pos();
-        self.dest
+        self.output
             .write_all(&self.frame_decoder_buf[0..decoded_len])?;
+
+        tracing::trace!(
+            in_len = input_buf.pos(),
+            out_len = decoded_len,
+            next_input_len_hint,
+            "process zstd frame"
+        );
+        if next_input_len_hint == 0 {
+            tracing::trace!("ZstdFrame -> FrameHeader");
+            self.state = PushDecoderState::FrameHeader;
+        }
 
         Ok(input_buf.pos())
     }
@@ -217,7 +228,7 @@ impl<W: Write> ZstdPushDecoder<W> {
 
         self.frame_decoder.run(&mut input_buf, &mut output_buf)?;
         let decoded_len = output_buf.pos();
-        self.dest
+        self.output
             .write_all(&self.frame_decoder_buf[0..decoded_len])?;
 
         Ok(input_buf.pos())
@@ -252,20 +263,20 @@ impl<W: Write> Write for ZstdPushDecoder<W> {
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        self.dest.flush()
+        self.output.flush()
     }
 }
 
 pub struct ZstdDecoder<R: Read> {
-    source: R,
+    input: R,
     push_decoder: ZstdPushDecoder<VecDeque<u8>>,
     buf: Vec<u8>,
 }
 
 impl<R: Read> ZstdDecoder<R> {
-    pub fn new(source: R, dictionary: Dictionary) -> std::io::Result<Self> {
+    pub fn new(input: R, dictionary: Dictionary) -> std::io::Result<Self> {
         Ok(Self {
-            source,
+            input,
             push_decoder: ZstdPushDecoder::new(VecDeque::new(), dictionary)?,
             buf: Vec::new(),
         })
@@ -276,7 +287,7 @@ impl<R: Read> ZstdDecoder<R> {
 
         while self.push_decoder.get_ref().is_empty() {
             self.buf.resize(BUFFER_LENGTH, 0);
-            let source_read_len = self.source.read(&mut self.buf)?;
+            let source_read_len = self.input.read(&mut self.buf)?;
             self.buf.truncate(source_read_len);
 
             tracing::trace!(source_read_len, "fill decoder");
@@ -302,15 +313,15 @@ impl<R: Read> ZstdDecoder<R> {
     }
 
     pub fn get_ref(&self) -> &R {
-        &self.source
+        &self.input
     }
 
     pub fn get_mut(&mut self) -> &mut R {
-        &mut self.source
+        &mut self.input
     }
 
     pub fn into_inner(self) -> R {
-        self.source
+        self.input
     }
 
     pub fn start_next_frame(&mut self) -> std::io::Result<()> {

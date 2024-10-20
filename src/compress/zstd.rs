@@ -18,7 +18,9 @@ pub fn is_skippable_frame(magic_number: u32) -> bool {
     (0x184D2A50..=0x184D2A5F).contains(&magic_number)
 }
 
-pub fn extract_warc_zst_dictionary<R: Read>(mut input: R) -> std::io::Result<Vec<u8>> {
+pub fn extract_warc_zst_dictionary<R: Read>(
+    mut input: R,
+) -> Result<Vec<u8>, WarcZstDictExtractError> {
     let mut buf = [0u8; 8];
 
     input.read_exact(&mut buf)?;
@@ -27,13 +29,11 @@ pub fn extract_warc_zst_dictionary<R: Read>(mut input: R) -> std::io::Result<Vec
     let length = u32::from_le_bytes(buf[4..8].try_into().unwrap());
 
     if length > MAX_ONE_SHOT_SIZE as u32 {
-        return Err(std::io::Error::other(
-            ".warc.zst dictionary frame too large",
-        ));
+        return Err(WarcZstDictExtractError::TooLarge);
     }
 
     if magic_number != WARC_DICT_FRAME {
-        return Err(std::io::Error::other("not a .warc.zst dictionary frame"));
+        return Err(WarcZstDictExtractError::NotDict);
     }
 
     let mut buf = vec![0u8; length as usize];
@@ -55,4 +55,14 @@ pub fn extract_warc_zst_dictionary<R: Read>(mut input: R) -> std::io::Result<Vec
     } else {
         Ok(buf)
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum WarcZstDictExtractError {
+    #[error("dictionary too large")]
+    TooLarge,
+    #[error("not a .warc.zst dictionary")]
+    NotDict,
+    #[error(transparent)]
+    Other(#[from] std::io::Error),
 }

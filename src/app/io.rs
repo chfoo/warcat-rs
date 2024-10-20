@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use crate::error::{GeneralError, ProtocolError, ProtocolErrorKind};
+use crate::error::{ProtocolError, ProtocolErrorKind};
 
 #[derive(Debug)]
 pub enum ProgramInput {
@@ -23,18 +23,6 @@ impl ProgramInput {
             Ok(Self::File(file))
         }
     }
-
-    pub fn seek_absolute(&mut self, position: u64) -> Result<(), GeneralError> {
-        match self {
-            ProgramInput::File(file) => {
-                file.seek(std::io::SeekFrom::Start(position))?;
-                Ok(())
-            }
-            ProgramInput::Stdin(_stdin) => {
-                Err(ProtocolError::new(ProtocolErrorKind::IoNotSeekable).into())
-            }
-        }
-    }
 }
 
 impl Read for ProgramInput {
@@ -42,6 +30,17 @@ impl Read for ProgramInput {
         match self {
             ProgramInput::File(r) => r.read(buf),
             ProgramInput::Stdin(r) => r.read(buf),
+        }
+    }
+}
+
+impl Seek for ProgramInput {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        match self {
+            ProgramInput::File(file) => file.seek(pos),
+            ProgramInput::Stdin(_stdin) => Err(std::io::Error::other(ProtocolError::new(
+                ProtocolErrorKind::IoNotSeekable,
+            ))),
         }
     }
 }

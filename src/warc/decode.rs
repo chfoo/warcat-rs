@@ -1,7 +1,7 @@
 //! WARC file reading
 use std::{
     collections::VecDeque,
-    io::{Read, Write},
+    io::{Read, Seek, Write},
 };
 
 use crate::{
@@ -82,6 +82,24 @@ impl<S, R: Read> Decoder<S, R> {
             Ok(())
         }
     }
+
+    /// Resets the decoder state so that a new record can be decoded.
+    ///
+    /// Configuration is kept but any buffered data is discarded.
+    ///
+    /// This function may be used after file seeking or
+    /// partially reading records.
+    pub fn reset(mut self) -> std::io::Result<Decoder<DecStateHeader, R>> {
+        self.push_decoder.reset()?;
+
+        Ok(Decoder {
+            state: DecStateHeader,
+            input: self.input,
+            push_decoder: self.push_decoder,
+            logical_position: self.logical_position,
+            buf: self.buf,
+        })
+    }
 }
 
 impl<R: Read> Decoder<DecStateHeader, R> {
@@ -149,6 +167,40 @@ impl<R: Read> Decoder<DecStateHeader, R> {
                 PushDecoderEvent::EndRecord => unreachable!(),
             }
         }
+    }
+}
+
+impl<R: Read + Seek> Decoder<DecStateHeader, R> {
+    /// Prepare the internal decompressor to be ready for the source to be seeked.
+    ///
+    /// For Zstandard, this may load an embedded dictionary.
+    /// For other compression formats, this has no effect.
+    pub fn prepare_for_seek(&mut self) -> Result<(), GeneralError> {
+        if self
+            .push_decoder
+            .config
+            .decompressor
+            .format
+            .supports_concatenation()
+        {
+            loop {
+                self.read_into_push_decoder()?;
+
+                match self.push_decoder.get_event()? {
+                    PushDecoderEvent::Ready
+                    | PushDecoderEvent::WantData
+                    | PushDecoderEvent::Continue => {}
+                    PushDecoderEvent::Header { .. }
+                    | PushDecoderEvent::BlockData { .. }
+                    | PushDecoderEvent::EndRecord => break,
+                }
+            }
+
+            self.input.seek(std::io::SeekFrom::Start(0))?;
+            self.push_decoder.reset()?;
+        }
+
+        Ok(())
     }
 }
 
@@ -429,6 +481,20 @@ impl PushDecoder {
             PushDecoderState::Block => self.process_block(),
             PushDecoderState::RecordBoundary => self.process_record_boundary(),
         }
+    }
+
+    /// Resets the decoder state so that a new record can be decoded.
+    ///
+    /// Configuration is kept but any buffered data is discarded.
+    ///
+    /// This function may be used after file seeking or
+    /// partially reading records.
+    pub fn reset(&mut self) -> std::io::Result<()> {
+        self.state = PushDecoderState::PendingHeader;
+        self.decompressor.get_mut().clear();
+        self.unused_input_buf.clear();
+        self.decompressor.start_next_segment()?;
+        Ok(())
     }
 
     fn process_header(&mut self) -> Result<PushDecoderEvent, GeneralError> {
