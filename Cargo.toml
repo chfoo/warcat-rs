@@ -3,7 +3,7 @@ members = ["xtask"]
 
 [package]
 name = "warcat"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "MPL-2.0"
 description = "Command-line tool and library for handling Web ARChive (WARC) files"
