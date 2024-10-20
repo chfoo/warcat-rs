@@ -119,9 +119,9 @@ impl<W: Write> ZstdPushDecoder<W> {
                     self.state = PushDecoderState::ZstdFrame;
 
                     if !self.buf.is_empty() {
-                        self.process_zstd_frame_buf()?;
+                        self.process_zstd_frame(None)?;
                     } else {
-                        self.process_zstd_frame(&buf[0..8])?;
+                        self.process_zstd_frame(Some(&buf[0..8]))?;
                     }
                 }
 
@@ -198,8 +198,8 @@ impl<W: Write> ZstdPushDecoder<W> {
         Ok((data, bytes_read))
     }
 
-    fn process_zstd_frame(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        let mut input_buf = InBuffer::around(buf);
+    fn process_zstd_frame(&mut self, buf: Option<&[u8]>) -> std::io::Result<usize> {
+        let mut input_buf = InBuffer::around(buf.unwrap_or_else(|| &self.buf));
         let mut output_buf = OutBuffer::around(&mut self.frame_decoder_buf);
 
         let next_input_len_hint = self.frame_decoder.run(&mut input_buf, &mut output_buf)?;
@@ -221,21 +221,8 @@ impl<W: Write> ZstdPushDecoder<W> {
         Ok(input_buf.pos())
     }
 
-    fn process_zstd_frame_buf(&mut self) -> std::io::Result<usize> {
-        // FIXME: reduce copypaste from above due to borrow rules
-        let mut input_buf = InBuffer::around(&self.buf);
-        let mut output_buf = OutBuffer::around(&mut self.frame_decoder_buf);
-
-        self.frame_decoder.run(&mut input_buf, &mut output_buf)?;
-        let decoded_len = output_buf.pos();
-        self.output
-            .write_all(&self.frame_decoder_buf[0..decoded_len])?;
-
-        Ok(input_buf.pos())
-    }
-
     fn reset_for_next_frame(&mut self) -> std::io::Result<()> {
-        tracing::trace!("{:?} -> FrameHeader", self.state);
+        tracing::trace!("reset for next frame: {:?} -> FrameHeader", self.state);
         self.state = PushDecoderState::FrameHeader;
 
         self.frame_decoder.reinit()?;
@@ -258,7 +245,7 @@ impl<W: Write> Write for ZstdPushDecoder<W> {
             PushDecoderState::FrameHeader => self.process_frame_header(buf),
             PushDecoderState::DictionaryFrameData => self.process_dictionary_frame_data(buf),
             PushDecoderState::SkippableFrameData => self.process_skippable_frame_data(buf),
-            PushDecoderState::ZstdFrame => self.process_zstd_frame(buf),
+            PushDecoderState::ZstdFrame => self.process_zstd_frame(Some(buf)),
         }
     }
 

@@ -1,9 +1,7 @@
 use std::io::{Cursor, Read};
 
 use warcat::{
-    compress::Dictionary,
-    verify::Verifier,
-    warc::{DecStateHeader, Decoder, DecoderConfig},
+    compress::Dictionary, io::LogicalPosition, verify::Verifier, warc::{DecStateHeader, Decoder, DecoderConfig}
 };
 
 mod warc_generator;
@@ -12,6 +10,7 @@ mod warc_generator;
 #[test]
 fn test_decode_gzip() {
     let input = warc_generator::generate_warc_gzip();
+    dbg!(input.len());
 
     let mut config = DecoderConfig::default();
     config.decompressor.format = warcat::compress::Format::Gzip;
@@ -26,6 +25,8 @@ fn test_decode_gzip() {
 #[test]
 fn test_decode_zst() {
     let input = warc_generator::generate_warc_zst();
+    dbg!(input.len());
+    std::fs::write("test_aaaaaaaa.warc.zst", &input).unwrap();
 
     let mut config = DecoderConfig::default();
     config.decompressor.format = warcat::compress::Format::Zstandard;
@@ -38,8 +39,13 @@ fn test_decode_zst() {
 
 fn check_decode(mut decoder: Decoder<DecStateHeader, Cursor<Vec<u8>>>) {
     let mut verifier = Verifier::new();
+    let mut count = 0;
 
     while decoder.has_next_record().unwrap() {
+        dbg!(count);
+        dbg!(decoder.logical_position());
+        dbg!(&decoder.get_ref().position());
+
         let (header, mut block_decoder) = decoder.read_header().unwrap();
 
         verifier.begin_record(&header).unwrap();
@@ -57,6 +63,13 @@ fn check_decode(mut decoder: Decoder<DecStateHeader, Cursor<Vec<u8>>>) {
 
         verifier.end_record();
         decoder = block_decoder.finish_block().unwrap();
+
+        if !verifier.problems().is_empty() {
+            println!("{:?}", verifier.problems());
+        }
+        assert!(verifier.problems().is_empty());
+
+        count += 1;
     }
 
     decoder.into_inner();

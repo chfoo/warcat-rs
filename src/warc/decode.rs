@@ -68,6 +68,10 @@ impl<S, R: Read> Decoder<S, R> {
 
         self.push_decoder.write_all(&self.buf)?;
 
+        if read_length == 0 {
+            self.push_decoder.write_eof();
+        }
+
         tracing::trace!(read_length, "read into push decoder");
 
         Ok(read_length)
@@ -150,6 +154,7 @@ impl<R: Read> Decoder<DecStateHeader, R> {
                     self.read_nonzero_into_push_decoder()?;
                     continue;
                 }
+                PushDecoderEvent::WantDataOrEof => unreachable!(),
                 PushDecoderEvent::Continue => continue,
                 PushDecoderEvent::Header { header } => {
                     return Ok((
@@ -189,6 +194,7 @@ impl<R: Read + Seek> Decoder<DecStateHeader, R> {
                 match self.push_decoder.get_event()? {
                     PushDecoderEvent::Ready
                     | PushDecoderEvent::WantData
+                    | PushDecoderEvent::WantDataOrEof
                     | PushDecoderEvent::Continue => {}
                     PushDecoderEvent::Header { .. }
                     | PushDecoderEvent::BlockData { .. }
@@ -227,10 +233,14 @@ impl<R: Read> Decoder<DecStateBlock, R> {
                     self.read_nonzero_into_push_decoder()?;
                     continue;
                 }
+                PushDecoderEvent::WantDataOrEof => {
+                    self.read_into_push_decoder()?;
+                    continue;
+                }
                 PushDecoderEvent::Continue => continue,
                 PushDecoderEvent::Header { header: _ } => unreachable!(),
                 PushDecoderEvent::BlockData { data } => {
-                    assert!(data.len() <= buf.len());
+                    debug_assert!(data.len() <= buf.len());
 
                     let buf_upper = buf.len().min(data.len());
                     tracing::trace!(read_length = buf_upper, "read block");
@@ -279,6 +289,10 @@ impl<R: Read> Decoder<DecStateBlock, R> {
                     self.read_nonzero_into_push_decoder()?;
                     continue;
                 }
+                PushDecoderEvent::WantDataOrEof => {
+                    self.read_into_push_decoder()?;
+                    continue;
+                }
                 PushDecoderEvent::Continue => continue,
                 PushDecoderEvent::Header { header: _ } => unreachable!(),
                 PushDecoderEvent::BlockData { data: _ } => continue,
@@ -309,6 +323,8 @@ pub enum PushDecoderEvent<'a> {
     Ready,
     /// More data is needed.
     WantData,
+    /// Either more data or end-of-file (EOF) is needed.
+    WantDataOrEof,
     /// Internal processing was successful and the user should call again.
     Continue,
     /// Decoding a header was successful.
@@ -371,6 +387,7 @@ enum PushDecoderState {
     Header,
     Block,
     RecordBoundary,
+    EndOfSegment,
 }
 
 /// WARC format decoder push-style.
@@ -383,6 +400,8 @@ pub struct PushDecoder {
     config: DecoderConfig,
     state: PushDecoderState,
     decompressor: PushDecompressor<VecDeque<u8>>,
+    decompressor_eof: bool,
+    input_eof: bool,
     /// Data that has not been decompresssed yet because it's for the next record.
     unused_input_buf: VecDeque<u8>,
     /// Number of bytes that have been decompressed.
@@ -410,6 +429,8 @@ impl PushDecoder {
             config,
             state: PushDecoderState::PendingHeader,
             decompressor,
+            decompressor_eof: false,
+            input_eof: false,
             unused_input_buf: VecDeque::with_capacity(BUFFER_LENGTH),
             bytes_consumed: 0,
             record_boundary_position: 0,
@@ -480,6 +501,7 @@ impl PushDecoder {
             PushDecoderState::Header => self.process_header(),
             PushDecoderState::Block => self.process_block(),
             PushDecoderState::RecordBoundary => self.process_record_boundary(),
+            PushDecoderState::EndOfSegment => self.process_end_of_segment(),
         }
     }
 
@@ -555,7 +577,7 @@ impl PushDecoder {
             "process block"
         );
 
-        assert!(self.block_length >= self.block_current_position);
+        debug_assert!(self.block_length >= self.block_current_position);
         let remaining_bytes = self.block_length - self.block_current_position;
 
         if remaining_bytes == 0 {
@@ -602,16 +624,36 @@ impl PushDecoder {
             } else {
                 self.decompressor.get_mut().drain(0..4);
 
-                self.reset_for_next_record()?;
-
-                Ok(PushDecoderEvent::EndRecord)
+                self.state = PushDecoderState::EndOfSegment;
+                Ok(PushDecoderEvent::Continue)
             }
         } else {
             Ok(PushDecoderEvent::WantData)
         }
     }
 
+    fn process_end_of_segment(&mut self) -> Result<PushDecoderEvent, GeneralError> {
+        tracing::trace!(self.decompressor_eof, "process end of segment");
+
+        if self.config.decompressor.format.supports_concatenation()
+            && self.decompressor.get_ref().is_empty()
+            && !self.decompressor_eof
+            && !self.input_eof
+        {
+            // Finish reading any end of compression member/frame checksums.
+            Ok(PushDecoderEvent::WantDataOrEof)
+        } else {
+            self.reset_for_next_record()?;
+
+            Ok(PushDecoderEvent::EndRecord)
+        }
+    }
+
     fn reset_for_next_record(&mut self) -> Result<(), GeneralError> {
+        tracing::trace!(
+            remain_decomp_len = self.decompressor.get_ref().len(),
+            "reset for next record"
+        );
         // dbg!(String::from_utf8_lossy(self.decompressor.get_ref().as_slices().0));
         // dbg!(String::from_utf8_lossy(self.decompressor.get_ref().as_slices().1));
 
@@ -627,6 +669,8 @@ impl PushDecoder {
         }
 
         self.record_boundary_position = self.bytes_consumed;
+        self.decompressor_eof = false;
+        self.input_eof = false;
 
         self.consume_unused_input()?;
 
@@ -658,6 +702,12 @@ impl PushDecoder {
         }
         Ok(())
     }
+
+    /// Notify that there is no more input to be decoded.
+    pub fn write_eof(&mut self) {
+        tracing::trace!("push decoder got write eof");
+        self.input_eof = true;
+    }
 }
 
 impl Write for PushDecoder {
@@ -681,6 +731,7 @@ impl Write for PushDecoder {
             self.bytes_consumed += write_len as u64;
             Ok(write_len)
         } else {
+            self.decompressor_eof = true;
             self.unused_input_buf.write_all(buf)?;
             Ok(buf.len())
         }
@@ -782,6 +833,9 @@ mod tests {
         decoder.write_all(b"WARC/1.1\r\n").unwrap();
 
         let event = decoder.get_event().unwrap();
+        assert!(event.is_continue());
+
+        let event = decoder.get_event().unwrap();
         assert!(event.is_end_record());
 
         let event = decoder.get_event().unwrap();
@@ -795,8 +849,13 @@ mod tests {
             )
             .unwrap();
 
+        decoder.write_eof();
+
         let event = decoder.get_event().unwrap();
         assert!(event.is_header());
+
+        let event = decoder.get_event().unwrap();
+        assert!(event.is_continue());
 
         let event = decoder.get_event().unwrap();
         assert!(event.is_continue());
