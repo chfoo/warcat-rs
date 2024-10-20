@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2024-10-20)
 
 * Fixed: false positive Payload Digest problem during verify for "revisit" records.
 * Added: Get command for exporting/extracting single records.
