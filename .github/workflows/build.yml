@@ -13,16 +13,22 @@ jobs:
         params:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-musl
+            use-cross-rs: false
           - os: ubuntu-22.04
             target: aarch64-unknown-linux-musl
+            use-cross-rs: true
           - os: windows-2022
             target: x86_64-pc-windows-msvc
+            use-cross-rs: false
           - os: windows-2022
             target: aarch64-pc-windows-msvc
+            use-cross-rs: false
           - os: macos-14
             target: x86_64-apple-darwin
+            use-cross-rs: false
           - os: macos-14
             target: aarch64-apple-darwin
+            use-cross-rs: false
 
     runs-on: ${{ matrix.params.os }}
     steps:
@@ -38,15 +44,9 @@ jobs:
           OS: ${{ matrix.params.os }}
           Target: ${{ matrix.params.target }}
           Date: ${{ steps.datetime.outputs.time }}
-    - name: Install cross-compiler
-      if: ${{ matrix.params.target == 'aarch64-unknown-linux-musl' }}
-      run: |
-        sudo apt -y install gcc-aarch64-linux-gnu
-        echo "CC=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
-        echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc" >> "$GITHUB_ENV"
     - name: Install musl
       if: ${{ matrix.params.os == 'ubuntu-22.04' }}
-      run: sudo apt -y install musl-tools
+      run: sudo apt-get -y install musl-tools
     - uses: actions/checkout@v4
     - uses: Swatinem/rust-cache@v2
       with:
@@ -54,7 +54,16 @@ jobs:
     - name: Install target
       run: rustup target add ${{ matrix.params.target }}
     - name: Run release build
+      if: ${{ !matrix.params.use-cross-rs }}
       run: cargo build --features=bin --release --verbose --target ${{ matrix.params.target }}
+    - name: Run cross release build
+      if: ${{ matrix.params.use-cross-rs }}
+      uses: houseabsolute/actions-rust-cross@v0.0.15
+      with:
+        command: build
+        args: "--features=bin --release --verbose"
+        target: ${{ matrix.params.target }}
+        cross-version: 4090beca3cfffa44371a5bba524de3a578aa46c3
     - name: Package binary
       run: cargo xtask package-bin ${{ matrix.params.target }}
     - uses: actions/upload-artifact@v4
