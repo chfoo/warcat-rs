@@ -73,7 +73,7 @@ map:
 * `BlockEnd` - map
   * `crc32` - integer (optional, unsigned 32-bit): CRC32 (ITU-T V.42) checksum of the block data.
   * `crc32c` - integer (optional, unsigned 32-bit): CRC32C checksum of the block data.
-  * `xxh3`a - integer (optional, unsigned 64-bit): XxHash XXH3 checksum of the block data.
+  * `xxh3` - integer (optional, unsigned 64-bit): XxHash XXH3 checksum of the block data.
 
 The checksum is used to ensure that processing of messages was properly implemented.
 

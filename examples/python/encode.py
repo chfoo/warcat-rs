@@ -8,14 +8,10 @@ import message
 def main():
     # Launch the warcat program. The options provided will tell it to read
     # JSON as a line from standard in.
-    # In your code, do not use "cargo",
-    # use ["warcat", "import", ... ]
+    # Ensure you have warcat on the search path or adjust the path as needed.
     with subprocess.Popen(
         [
-            "cargo",
-            "run",
-            "--features=bin",
-            "--",
+            "warcat",
             "import",
             "--compression=none",
             "--format=jsonl",

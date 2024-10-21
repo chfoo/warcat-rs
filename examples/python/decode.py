@@ -7,14 +7,10 @@ import message
 def main():
     # Launch the warcat program. The options provided will tell it to write
     # JSON as a line to standard out.
-    # In your code, do not use "cargo",
-    # use ["warcat", "export", ... ]
+    # Ensure you have warcat on the search path or adjust the path as needed.
     with subprocess.Popen(
         [
-            "cargo",
-            "run",
-            "--features=bin",
-            "--",
+            "warcat",
             "export",
             "--input=examples/example.warc",
             "--format=jsonl",

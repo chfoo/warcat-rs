@@ -1,0 +1,6 @@
+WARC/1.1
+WARC-Record-Type: resource
+Content-Length: 12
+
+Hello world!
+
