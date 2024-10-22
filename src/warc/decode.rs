@@ -404,7 +404,7 @@ pub struct PushDecoder {
     input_eof: bool,
     /// Data that has not been decompresssed yet because it's for the next record.
     unused_input_buf: VecDeque<u8>,
-    /// Number of bytes that have been decompressed.
+    /// Number of bytes that have been decoded (excluding buffered "unused" bytes).
     bytes_consumed: u64,
     record_boundary_position: u64,
     /// Total number of bytes to be read from the record block.

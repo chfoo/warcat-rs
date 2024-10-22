@@ -21,10 +21,17 @@ pub trait Codec: Debug {
         Ok(())
     }
 
+    /// Returns whether if there is buffered data containing
+    /// the Trailer portion of Chunked-Transfer Encoding.
+    ///
+    /// (A out-of-band data function.)
     fn has_remaining_trailer(&self) -> bool {
         false
     }
 
+    /// Writes buffered data containing the Trailer portion of Chunked-Transfer Encoding.
+    ///
+    /// (A out-of-band data function.)
     fn remaining_trailer(&mut self, trailer: &mut Vec<u8>) {
         let _ = trailer;
     }

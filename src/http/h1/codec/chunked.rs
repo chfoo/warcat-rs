@@ -75,6 +75,7 @@ impl ChunkedDecoder {
             Ok((remain, len)) => {
                 self.chunk_len = len;
                 self.chunk_position = 0;
+                tracing::trace!("SizeLine -> ChunkData");
                 self.state = ChunkedDecoderState::ChunkData;
 
                 let consumed_len = buf_len - remain.len();
@@ -83,17 +84,14 @@ impl ChunkedDecoder {
                 tracing::trace!(len, consumed_len, "parsed chunk line");
 
                 if self.chunk_len == 0 {
+                    tracing::trace!("SizeLine -> Done");
                     self.state = ChunkedDecoderState::Done;
                 }
 
                 Ok(LoopState::Continue)
             }
             Err(error) => match error {
-                nom::Err::Incomplete(_needed) => {
-                    self.state = ChunkedDecoderState::SizeLine;
-
-                    Ok(LoopState::Break)
-                }
+                nom::Err::Incomplete(_needed) => Ok(LoopState::Break),
                 nom::Err::Error(_) => {
                     Err(ProtocolError::new(ProtocolErrorKind::InvalidChunkedEncoding).into())
                 }
@@ -117,6 +115,7 @@ impl ChunkedDecoder {
         tracing::trace!(self.chunk_position, self.chunk_len, "process chunk data");
 
         if self.chunk_position == self.chunk_len {
+            tracing::trace!("ChunkData -> Boundary");
             self.state = ChunkedDecoderState::Boundary;
         }
 
@@ -129,9 +128,8 @@ impl ChunkedDecoder {
                 let len = consumed.len();
                 self.buf.drain(0..len);
 
+                tracing::trace!("Boundary -> SizeLine");
                 self.state = ChunkedDecoderState::SizeLine;
-
-                tracing::trace!("chunk boundary");
 
                 Ok(LoopState::Continue)
             }
@@ -169,13 +167,19 @@ impl Codec for ChunkedDecoder {
     }
 
     fn has_remaining_trailer(&self) -> bool {
-        !self.buf.is_empty()
+        if self.state == ChunkedDecoderState::Done {
+            !self.buf.is_empty()
+        } else {
+            false
+        }
     }
 
     fn remaining_trailer(&mut self, trailer: &mut Vec<u8>) {
-        tracing::trace!(len = self.buf.len(), "remaining trailer");
+        if self.state == ChunkedDecoderState::Done {
+            tracing::trace!(len = self.buf.len(), "remaining trailer");
 
-        std::io::copy(&mut self.buf, trailer).unwrap();
+            std::io::copy(&mut self.buf, trailer).unwrap();
+        }
     }
 }
 
@@ -256,6 +260,34 @@ mod tests {
         decoder.remaining_trailer(&mut trailer);
 
         assert_eq!(trailer, b"a: b\r\n\r\n");
+        assert!(!decoder.has_remaining_trailer());
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    fn test_decode_partial_chunk_size() {
+        let mut decoder = ChunkedDecoder::new();
+
+        let mut output = Vec::new();
+
+        decoder.transform(b"1", &mut output).unwrap();
+        assert!(output.is_empty());
+        assert!(!decoder.has_remaining_trailer());
+
+        decoder.transform(b"f", &mut output).unwrap();
+        assert!(output.is_empty());
+        assert!(!decoder.has_remaining_trailer());
+
+        decoder.transform(b"\r", &mut output).unwrap();
+        assert!(output.is_empty());
+        assert!(!decoder.has_remaining_trailer());
+
+        decoder.transform(b"\n", &mut output).unwrap();
+        assert!(output.is_empty());
+        assert!(!decoder.has_remaining_trailer());
+
+        decoder.transform(&[1u8; 0x1f], &mut output).unwrap();
+        decoder.transform(b"\r\n", &mut output).unwrap();
         assert!(!decoder.has_remaining_trailer());
     }
 }

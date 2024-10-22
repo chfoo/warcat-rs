@@ -3,9 +3,10 @@
 ## Unreleased
 
 * Fixed: memory error reading ".warc.zst" files with compressed dictionaries.
-* Fixed: corrupted data reading highly compressed ".warc.zst" files.
+* Fixed: corrupted data reading and file offsets for highly compressed ".warc.zst" files.
 * Fixed: exclude-check from verify command not respected.
 * Fixed: ANSI codes written to log files.
+* Fixed: corrupted decoding Chunk-Transfer Encoding in cases where data aligns within a boundary.
 
 ## 0.3.0 (2024-10-20)
 

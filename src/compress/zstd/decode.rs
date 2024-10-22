@@ -21,6 +21,7 @@ enum PushDecoderState {
     DictionaryFrameData,
     SkippableFrameData,
     ZstdFrame,
+    EndOfFrame,
 }
 
 pub struct ZstdPushDecoder<W: Write> {
@@ -168,7 +169,7 @@ impl<W: Write> ZstdPushDecoder<W> {
                 self.frame_decoder = ZstdFrameDecoder::with_dictionary(dict)?;
             }
 
-            self.reset_for_next_frame()?;
+            self.start_next_frame()?;
         }
 
         Ok(bytes_read)
@@ -178,14 +179,14 @@ impl<W: Write> ZstdPushDecoder<W> {
         let (_data, bytes_read) = self.read_skippable_frame(buf)?;
 
         if self.data_current == self.data_length {
-            self.reset_for_next_frame()?;
+            self.start_next_frame()?;
         }
 
         Ok(bytes_read)
     }
 
     fn read_skippable_frame<'a>(&mut self, buf: &'a [u8]) -> std::io::Result<(&'a [u8], usize)> {
-        assert!(self.data_current <= self.data_length);
+        debug_assert!(self.data_current <= self.data_length);
 
         let remain_length = self.data_length - self.data_current;
         let remain_length = remain_length.min(buf.len().try_into().unwrap_or(u32::MAX));
@@ -217,8 +218,8 @@ impl<W: Write> ZstdPushDecoder<W> {
             );
 
             if next_input_len_hint == 0 {
-                tracing::trace!("ZstdFrame -> FrameHeader");
-                self.state = PushDecoderState::FrameHeader;
+                tracing::trace!("ZstdFrame -> EndOfFrame");
+                self.state = PushDecoderState::EndOfFrame;
 
                 break;
             } else if decoded_len == 0 || input_buf.pos() == input_buf.src.len() {
@@ -229,17 +230,11 @@ impl<W: Write> ZstdPushDecoder<W> {
         Ok(input_buf.pos())
     }
 
-    fn reset_for_next_frame(&mut self) -> std::io::Result<()> {
-        tracing::trace!("reset for next frame: {:?} -> FrameHeader", self.state);
+    pub fn start_next_frame(&mut self) -> std::io::Result<()> {
+        tracing::trace!("start next frame: {:?} -> EndOfFrame", self.state);
         self.state = PushDecoderState::FrameHeader;
-
         self.frame_decoder.reinit()?;
 
-        Ok(())
-    }
-
-    pub fn start_next_frame(&mut self) -> std::io::Result<()> {
-        self.reset_for_next_frame()?;
         Ok(())
     }
 }
@@ -254,6 +249,7 @@ impl<W: Write> Write for ZstdPushDecoder<W> {
             PushDecoderState::DictionaryFrameData => self.process_dictionary_frame_data(buf),
             PushDecoderState::SkippableFrameData => self.process_skippable_frame_data(buf),
             PushDecoderState::ZstdFrame => self.process_zstd_frame(Some(buf)),
+            PushDecoderState::EndOfFrame => Ok(0),
         }
     }
 

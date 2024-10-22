@@ -81,7 +81,7 @@ impl Receiver {
             ));
         }
 
-        tracing::trace!("next message");
+        tracing::trace!("next message: {:?} -> Header", self.state);
         self.state = State::Header;
         Ok(())
     }
@@ -97,6 +97,7 @@ impl Receiver {
             self.config_codecs(&header)?;
             self.config_content_length(&header)?;
 
+            tracing::trace!("Header -> Body");
             self.state = State::Body;
 
             Ok(ReceiverEvent::Header(header))
@@ -206,6 +207,7 @@ impl Receiver {
 
             Ok(ReceiverEvent::Body(&self.output_buf))
         } else if self.current_body >= content_length {
+            tracing::trace!("{:?} -> Header", self.state);
             self.state = State::End;
             Ok(ReceiverEvent::End)
         } else {
@@ -228,6 +230,7 @@ impl Receiver {
         if !self.output_buf.is_empty() {
             Ok(ReceiverEvent::Body(&self.output_buf))
         } else if self.has_trailer && self.codec_pipeline.has_remaining_trailer() {
+            tracing::trace!("{:?} -> Trailer", self.state);
             self.state = State::Trailer;
             self.process_trailer()
         } else {
@@ -250,6 +253,7 @@ impl Receiver {
         if !self.output_buf.is_empty() {
             Ok(ReceiverEvent::Body(&self.output_buf))
         } else if self.codec_pipeline.has_remaining_trailer() {
+            tracing::trace!("{:?} -> Trailer", self.state);
             self.state = State::Trailer;
             self.process_trailer()
         } else {
@@ -271,6 +275,7 @@ impl Receiver {
             self.input_buf.extend_from_slice(&self.trailer_buf);
             self.trailer_buf.clear();
 
+            tracing::trace!("{:?} -> End", self.state);
             self.state = State::End;
 
             Ok(ReceiverEvent::Trailer(trailer))
