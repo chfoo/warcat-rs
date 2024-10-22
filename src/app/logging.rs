@@ -72,7 +72,11 @@ impl<W: Write> Write for ProgressBarMutexWriter<W> {
 pub fn set_up_logging(level: Level, file: Option<&Path>, json: bool) -> std::io::Result<()> {
     let file_sub = if let Some(path) = file {
         let writer = File::options().create(true).append(true).open(path)?;
-        Some(tracing_subscriber::fmt::layer().with_writer(Mutex::new(writer)))
+        Some(
+            tracing_subscriber::fmt::layer()
+                .with_ansi(false)
+                .with_writer(Mutex::new(writer)),
+        )
     } else {
         None
     };

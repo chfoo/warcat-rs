@@ -813,6 +813,8 @@ impl Verifier {
     pub fn end_record(&mut self) {
         let mut hashers = std::mem::take(&mut self.hashers);
 
+        tracing::trace!(hashers_len = hashers.len(), "verify block digests");
+
         for hasher in &mut hashers {
             let value = hasher.finish();
 
@@ -830,6 +832,8 @@ impl Verifier {
         self.hashers = hashers;
 
         let mut payload_hashers = std::mem::take(&mut self.payload_hashers);
+
+        tracing::trace!(hashers_len = payload_hashers.len(), "verify payload digests");
 
         for hasher in &mut payload_hashers {
             let value = hasher.finish();

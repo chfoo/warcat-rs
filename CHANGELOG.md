@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+* Fixed: memory error reading ".warc.zst" files with compressed dictionaries.
+* Fixed: corrupted data reading highly compressed ".warc.zst" files.
+* Fixed: exclude-check from verify command not respected.
+* Fixed: ANSI codes written to log files.
+
 ## 0.3.0 (2024-10-20)
 
 * Fixed: false positive Payload Digest problem during verify for "revisit" records.

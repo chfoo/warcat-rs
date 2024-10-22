@@ -3,7 +3,7 @@ use std::{cell::RefCell, process::ExitCode, rc::Rc};
 use crate::{
     app::common::{ReaderEvent, ReaderPipeline},
     dataseq::SeqWriter,
-    verify::{Verifier, VerifyStatus},
+    verify::{Check, Verifier, VerifyStatus},
 };
 
 use super::arg::VerifyCommand;
@@ -17,11 +17,16 @@ pub fn verify(args: &VerifyCommand) -> anyhow::Result<ExitCode> {
 
     let mut writer = SeqWriter::new(output, seq_format);
     let mut problem_count = 0u64;
-    let verifier = if let Some(path) = &args.database {
+    let mut verifier = if let Some(path) = &args.database {
         Verifier::open(path)?
     } else {
         Verifier::new()
     };
+
+    for exclude in &args.exclude_check {
+        verifier.checks_mut().remove(&Check::from(*exclude));
+    }
+
     let verifier = Rc::new(RefCell::new(verifier));
 
     for input_path in &args.input {

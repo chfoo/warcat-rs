@@ -137,6 +137,7 @@ where
             .unwrap_or_default();
         self.progress_bar
             .set_message(format!("Processing record {}", record_id));
+        tracing::info!(record_id, "processing record");
         self.progress_bar.set_position(reader.logical_position());
 
         (self.callback)(ReaderEvent::Header {
