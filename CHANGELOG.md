@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 (2024-10-22)
 
 * Fixed: memory error reading ".warc.zst" files with compressed dictionaries.
 * Fixed: corrupted data reading and file offsets for highly compressed ".warc.zst" files.
