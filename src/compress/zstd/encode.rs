@@ -27,17 +27,23 @@ impl<W: Write> ZstdEncoder<W> {
             Dictionary::Zstd(_vec) => WarcDictionaryState::None,
             Dictionary::WarcZstd(_vec) => WarcDictionaryState::PendingFrameWrite,
         };
-        let encoder_impl = match &dictionary {
+        let mut encoder_impl = match &dictionary {
             Dictionary::None => ZstdEncoderImpl::new(dest, level)?,
             Dictionary::Zstd(vec) => ZstdEncoderImpl::with_dictionary(dest, level, vec)?,
             Dictionary::WarcZstd(vec) => ZstdEncoderImpl::with_dictionary(dest, level, vec)?,
         };
+        Self::config_encoder(&mut encoder_impl)?;
         Ok(Self {
             level,
             dictionary,
             warc_dict_state,
             encoder_impl: Some(encoder_impl),
         })
+    }
+
+    fn config_encoder(encoder: &mut ZstdEncoderImpl<'static, W>) -> std::io::Result<()> {
+        encoder.include_checksum(true)?;
+        Ok(())
     }
 
     pub fn get_ref(&self) -> &W {
@@ -68,11 +74,12 @@ impl<W: Write> ZstdEncoder<W> {
 
         let dest = self.encoder_impl.take().unwrap().finish()?;
 
-        let encoder_impl = match &self.dictionary {
+        let mut encoder_impl = match &self.dictionary {
             Dictionary::None => ZstdEncoderImpl::new(dest, self.level)?,
             Dictionary::Zstd(vec) => ZstdEncoderImpl::with_dictionary(dest, self.level, vec)?,
             Dictionary::WarcZstd(vec) => ZstdEncoderImpl::with_dictionary(dest, self.level, vec)?,
         };
+        Self::config_encoder(&mut encoder_impl)?;
 
         self.encoder_impl = Some(encoder_impl);
 

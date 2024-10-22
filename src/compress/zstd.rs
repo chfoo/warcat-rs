@@ -12,7 +12,7 @@ mod encode;
 
 const WARC_DICT_FRAME: u32 = 0x184D2A5D;
 const ZSTD_FRAME: u32 = 0xFD2FB528;
-const MAX_ONE_SHOT_SIZE: usize = 8 * 1024 * 1024 * 1024;
+const BULK_BUFFER_LENGTH: usize = 16 * 1024 * 1024;
 
 pub fn is_skippable_frame(magic_number: u32) -> bool {
     (0x184D2A50..=0x184D2A5F).contains(&magic_number)
@@ -28,7 +28,7 @@ pub fn extract_warc_zst_dictionary<R: Read>(
     let magic_number = u32::from_le_bytes(buf[0..4].try_into().unwrap());
     let length = u32::from_le_bytes(buf[4..8].try_into().unwrap());
 
-    if length > MAX_ONE_SHOT_SIZE as u32 {
+    if length > BULK_BUFFER_LENGTH as u32 {
         return Err(WarcZstDictExtractError::TooLarge);
     }
 
@@ -42,7 +42,7 @@ pub fn extract_warc_zst_dictionary<R: Read>(
     if buf.starts_with(&ZSTD_FRAME.to_le_bytes()) {
         #[cfg(feature = "zstd")]
         {
-            let buf2 = zstd::bulk::decompress(&buf, MAX_ONE_SHOT_SIZE)?;
+            let buf2 = zstd::bulk::decompress(&buf, BULK_BUFFER_LENGTH)?;
 
             Ok(buf2)
         }

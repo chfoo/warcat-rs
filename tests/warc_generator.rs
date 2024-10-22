@@ -18,13 +18,17 @@ pub fn generate_warc_gzip() -> Vec<u8> {
 }
 
 #[cfg(feature = "zstd")]
-pub fn generate_warc_zst() -> Vec<u8> {
+pub fn generate_warc_zst(compressed_dict: bool) -> Vec<u8> {
     let mut sample = vec![0; 10000];
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(1234567);
     rng.fill_bytes(&mut sample);
     let sizes = [100usize; 100];
 
-    let dictionary = zstd::dict::from_continuous(&sample, &sizes, 10000).unwrap();
+    let mut dictionary = zstd::dict::from_continuous(&sample, &sizes, 10000).unwrap();
+
+    if compressed_dict {
+        dictionary = zstd::bulk::compress(&dictionary, 3).unwrap();
+    }
 
     let mut config = EncoderConfig::default();
     config.compressor.format = warcat::compress::Format::Zstandard;

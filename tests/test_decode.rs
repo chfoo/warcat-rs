@@ -24,7 +24,23 @@ fn test_decode_gzip() {
 #[tracing_test::traced_test]
 #[test]
 fn test_decode_zst() {
-    let input = warc_generator::generate_warc_zst();
+    let input = warc_generator::generate_warc_zst(false);
+    dbg!(input.len());
+
+    let mut config = DecoderConfig::default();
+    config.decompressor.format = warcat::compress::Format::Zstandard;
+    config.decompressor.dictionary = Dictionary::WarcZstd(Vec::new());
+
+    let decoder = Decoder::new(Cursor::new(input), config).unwrap();
+
+    check_decode(decoder);
+}
+
+#[cfg(feature = "zstd")]
+#[tracing_test::traced_test]
+#[test]
+fn test_decode_zst_compressed_dict() {
+    let input = warc_generator::generate_warc_zst(true);
     dbg!(input.len());
 
     let mut config = DecoderConfig::default();

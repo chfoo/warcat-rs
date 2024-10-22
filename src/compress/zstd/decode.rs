@@ -10,7 +10,7 @@ use zstd::{
 
 use crate::compress::Dictionary;
 
-use super::{MAX_ONE_SHOT_SIZE, WARC_DICT_FRAME, ZSTD_FRAME};
+use super::{BULK_BUFFER_LENGTH, WARC_DICT_FRAME, ZSTD_FRAME};
 
 const BUFFER_LENGTH: usize = crate::io::IO_BUFFER_LENGTH;
 
@@ -150,7 +150,7 @@ impl<W: Write> ZstdPushDecoder<W> {
             {
                 let decomp_dict = zstd::bulk::decompress(
                     self.dictionary.as_warc_zstd().unwrap(),
-                    MAX_ONE_SHOT_SIZE,
+                    BULK_BUFFER_LENGTH,
                 )?;
 
                 tracing::trace!(
@@ -200,22 +200,30 @@ impl<W: Write> ZstdPushDecoder<W> {
 
     fn process_zstd_frame(&mut self, buf: Option<&[u8]>) -> std::io::Result<usize> {
         let mut input_buf = InBuffer::around(buf.unwrap_or_else(|| &self.buf));
-        let mut output_buf = OutBuffer::around(&mut self.frame_decoder_buf);
 
-        let next_input_len_hint = self.frame_decoder.run(&mut input_buf, &mut output_buf)?;
-        let decoded_len = output_buf.pos();
-        self.output
-            .write_all(&self.frame_decoder_buf[0..decoded_len])?;
+        loop {
+            let mut output_buf = OutBuffer::around(&mut self.frame_decoder_buf);
+            let next_input_len_hint = self.frame_decoder.run(&mut input_buf, &mut output_buf)?;
+            let decoded_len = output_buf.pos();
 
-        tracing::trace!(
-            in_len = input_buf.pos(),
-            out_len = decoded_len,
-            next_input_len_hint,
-            "process zstd frame"
-        );
-        if next_input_len_hint == 0 {
-            tracing::trace!("ZstdFrame -> FrameHeader");
-            self.state = PushDecoderState::FrameHeader;
+            self.output
+                .write_all(&self.frame_decoder_buf[0..decoded_len])?;
+
+            tracing::trace!(
+                in_len = input_buf.pos(),
+                out_len = decoded_len,
+                next_input_len_hint,
+                "process zstd frame"
+            );
+
+            if next_input_len_hint == 0 {
+                tracing::trace!("ZstdFrame -> FrameHeader");
+                self.state = PushDecoderState::FrameHeader;
+
+                break;
+            } else if decoded_len == 0 || input_buf.pos() == input_buf.src.len() {
+                break;
+            }
         }
 
         Ok(input_buf.pos())
