@@ -31,10 +31,10 @@ pub fn is_installer() -> bool {
     }
 
     let name = std::env::current_exe().unwrap_or_default();
-    let name = name.file_stem().unwrap_or_default();
     let name = name.to_string_lossy();
+    let name = name.strip_suffix(std::env::consts::EXE_SUFFIX).unwrap_or(&name);
     let pattern = Regex::new(r"(?-ui:[. _-]installer)$").unwrap();
-    pattern.is_match(&name)
+    pattern.is_match(name)
 }
 
 pub fn install_interactive() -> anyhow::Result<()> {

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+* Fixed: application named with version isn't detected as installer on macOS/Linux.
+
 ## 0.3.1 (2024-10-22)
 
 * Fixed: memory error reading ".warc.zst" files with compressed dictionaries.
