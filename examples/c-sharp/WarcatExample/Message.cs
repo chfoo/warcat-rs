@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace WarcatExample;
@@ -20,6 +21,18 @@ public class Message
     public ExtractEnd? ExtractEnd { get; set; }
     [JsonPropertyName("EndOfFile")]
     public EndOfFile? EndOfFile { get; set; }
+
+    public static JsonSerializerOptions Options()
+    {
+        // Use snake_case for names.
+        var options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        };
+
+        return options;
+    }
 }
 
 public class Metadata
