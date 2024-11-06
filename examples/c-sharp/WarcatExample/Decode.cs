@@ -2,59 +2,57 @@
 using System.Diagnostics;
 using System.Text.Json;
 
-namespace WarcatExample
+namespace WarcatExample;
+
+class Decode
 {
-    class Decode
+    public static void Run()
     {
-        public static void Run()
+        var options = Message.Options();
+
+        // Launch the warcat program. The options provided will tell it to write
+        // JSON as a line to standard out.
+        // Ensure you have warcat on the search path or adjust the path as needed.
+        using (var process = new Process())
         {
-            var options = Message.Options();
+            process.StartInfo.FileName = "warcat";
+            process.StartInfo.ArgumentList.Add("export");
+            process.StartInfo.ArgumentList.Add("--input=example.warc");
+            process.StartInfo.ArgumentList.Add("--format=jsonl");
+            process.StartInfo.RedirectStandardOutput = true;
+            process.Start();
 
-            // Launch the warcat program. The options provided will tell it to write
-            // JSON as a line to standard out.
-            // Ensure you have warcat on the search path or adjust the path as needed.
-            using (var process = new Process())
+            while (true)
             {
-                process.StartInfo.FileName = "warcat";
-                process.StartInfo.ArgumentList.Add("export");
-                process.StartInfo.ArgumentList.Add("--input=example.warc");
-                process.StartInfo.ArgumentList.Add("--format=jsonl");
-                process.StartInfo.RedirectStandardOutput = true;
-                process.Start();
+                var line = process.StandardOutput.ReadLine();
 
-                while (true)
+                if (line == null)
                 {
-                    var line = process.StandardOutput.ReadLine();
+                    break;
+                }
 
-                    if (line == null)
-                    {
-                        break;
-                    }
+                // Decode each message
+                var message = JsonSerializer.Deserialize<Message>(line, options)!;
 
-                    // Decode each message
-                    var message = JsonSerializer.Deserialize<Message>(line, options)!;
-
-                    if (message.Header != null)
+                if (message.Header != null)
+                {
+                    // We decoded the start of the record.
+                    foreach (var field in message.Header.Fields)
                     {
-                        // We decoded the start of the record.
-                        foreach (var field in message.Header.Fields)
-                        {
-                            Console.WriteLine($"{field[0]}:{field[1]}");
-                        }
-                    }
-                    else if (message.BlockChunk != null)
-                    {
-                        // We decoded the body of the record.
-                        Console.WriteLine($"{message.BlockChunk.Data.Length}");
-                    }
-                    else if (message.EndOfFile != null)
-                    {
-                        // The end of the record was reached.
-                        Console.WriteLine("---");
+                        Console.WriteLine($"{field[0]}:{field[1]}");
                     }
                 }
+                else if (message.BlockChunk != null)
+                {
+                    // We decoded the body of the record.
+                    Console.WriteLine($"{message.BlockChunk.Data.Length}");
+                }
+                else if (message.EndOfFile != null)
+                {
+                    // The end of the record was reached.
+                    Console.WriteLine("---");
+                }
             }
-
         }
     }
 }
