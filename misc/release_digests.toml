@@ -300,4 +300,76 @@ trusted comment: timestamp:1729611597
 /YfdCn/V2jqbTSQu09znhgF5T1CuRTcTs+h5p3Mark2lVQokebEICb+mv/Pe/2xSLwRlRoaa/4O4gFqgUWNcCA==
 """
 
+[files."warcat-0.3.2-linux-aarch64.tar.gz"]
+sha256 = "2c4c8b7e84bf60cc5b21f01ab4d2e575e5b246989ddcce77b1cc94215a1e20e6"
+sha512 = "c88a93cd43af142f9af47ee399d70a78e9bcad1d2d64b71379adb2a8a9b4c4ed231b7df13b19a6591cda4df5ee45683fea042e2b342633fa04874fcc57de664f"
+blake2b = "28a4a0788d9179678f9283fd98597f4d2c4284e574f11129c785bd5ffc5b9db8a0077ab4ab1ef7df0197801e54885e89ccc6628f655bba27cd7ec61c444b5f47"
+blake3 = "7995c640649198c9ae3e549ba21fc038d7e95d08ffbdac46273b786fb3292c0f"
+minisign = """
+untrusted comment: signature from rsign secret key
+RUQuQKHwtF7mWxNyyySj7+Mq6LP2ZuTZC3FgYeNbjqokuzpda68tJP5Oy8ryDYWv9VHKiFfNwwVzugpxJQsEqRSNYzw0P78XSgc=
+trusted comment: timestamp:1731620824
+TZ3C3Tdif4Ba9LbG2rRulzgkawXn4ZeF6p6wnxJNqpxvIpQ/RexQsmEpqQibcFHG8rebVSbNm3y9hevS0+WHBg==
+"""
+
+[files."warcat-0.3.2-linux-x86_64.tar.gz"]
+sha256 = "2543a8789dacd8ec5670146edab1682fa530f3c643e617ba6dc9200a056fc8b3"
+sha512 = "d52f8eba7d8867519b63ed1edc8469fb4c8fcce40c0188c3b789e5e5fdf5c8032a3864a2b9e9f57e358d8971f61105da506588f09c87f809bdb9bb09aa0dce6d"
+blake2b = "9340154e85e40a8abe66dca1e42fa9b72a4ff3d22d5304bafcf5d24848d8fb6dab670dbb02947b02379bc32fd7241a9c8c14b465ee046c46276dfa034c2d1306"
+blake3 = "39095b5bf23bef0bac3e87fca6f43210e4891e23a95fe6c6335422b8cab9effb"
+minisign = """
+untrusted comment: signature from rsign secret key
+RUQuQKHwtF7mW1qFZ8sJkVXGtFrKH2Fokha1EPAxGpTfXdftysmJ/EkCcr6l+HETqxytgszRAAxWKd/ylaSzhKmfj5SuTEl5HAc=
+trusted comment: timestamp:1731620824
+9vHqEh5ZmcAgEWUXgpnJ/FTvft9fdY1stzQBxYps3CLPOXY9AkjZXXAJK0xQsgNuci5QD5DTNGPFhXtSvLYFCQ==
+"""
+
+[files."warcat-0.3.2-macos-aarch64.tgz"]
+sha256 = "6ed9822215a289ed3056dcd57049937b667bd77ee5ae772f566bdb66ecc42258"
+sha512 = "8da71adfddeaefd539305becd1d7cf01290cdd00974f4385c336b4299030fbe5e919ac25c0349c34c61e9af19508a1d9536ff0128db06f1ceb58f5e678e5aae2"
+blake2b = "036a68788cfc524cb2a32528e2bdc78197af71fbe98cb5e00b002131981b976d09a2d0c30963fd43ee1ef742f05b2da51d94ccac167c4d54ed9a2b718b350675"
+blake3 = "2632fc21455140de891c9f514ba3674d6cda382add1bf5875d556e5234d16f5c"
+minisign = """
+untrusted comment: signature from rsign secret key
+RUQuQKHwtF7mW+QYr40RvEFjBtkMI1rFJnt7A38M57OR7iVG9/GDsv6eBU2HMMnBFWtv+efmgMtnFr2cmoOhouRbe8w+qgrqOQA=
+trusted comment: timestamp:1731620824
+3VMy/L/+2aH2NP4F317DbCtb0uqRVwRNS1Ues1IqHNTlE2wMQgv3v3H++zZTcxcibUvwAmtLUCHIZkVy+YuIDQ==
+"""
+
+[files."warcat-0.3.2-macos-x86_64.tgz"]
+sha256 = "f336bd5cc4ed383e278bd1c1b0ce16db55df1c7a4f57b2bca90ed2ae02cb26e1"
+sha512 = "534954200c095769ddeee520106795a6e0901f3272a6672bc34b34f789e38c731dfb5f010b59b49099fc6e26e0babf9c689830d9851b61b22a4d9afa252f2862"
+blake2b = "35fbae98443191ef40a1325be6dfb2cac54fc757b664943e259b2cfc14b37747844b44bf238d58332836d5c7ad9374972883e3ec012c568c776d32c9958a90f5"
+blake3 = "430a0a1ec11f6d06e5f8487958abbd08f7c2c2b1a5831a02748064a3e25d10d5"
+minisign = """
+untrusted comment: signature from rsign secret key
+RUQuQKHwtF7mWxRPIJtm1LU6LpHKSU70bV04RGHKP4t+iaUDaq8s2LPseh0LEt1xmbLQFevp2Td7J7/O8w+iWDgDYasDDV4RHwQ=
+trusted comment: timestamp:1731620824
+VmzK6tVL4m9514wNj/nQM+kCsXVda4JDt2pdv4rU/VGN8VJ7ZTnVInwYM8G2/F11jdDoXykczAM57ZtvaWb2BQ==
+"""
+
+[files."warcat-0.3.2-windows-aarch64.zip"]
+sha256 = "e3b86877b8016ce31732797940476c124b5f8caa4cc05ee9ee08dbf5eaa18606"
+sha512 = "8b5244afc7f7da9000c735c38c779743215089ca5d862bc96a811346ca9b5f5e8d70ffe44cc7793dc56d6ba34213f7f25bacf8f338c89524c0ae4c74beb91d15"
+blake2b = "1bafd9e07ce3470b28ff49d91ea0b2b7b42bb0ad725c62bba195b0270c4bdb88ec33d488882af6f84ffb95c29e8992d7ecd7e64a9b11f433e25d3bbfc305f247"
+blake3 = "691ccf6eed798b98b644b185abfee281c3d73ed6da88e908d29f3e03bf440ca4"
+minisign = """
+untrusted comment: signature from rsign secret key
+RUQuQKHwtF7mW9IWe4OsvpgFAqlfQbgkEW3wq7qm10f2RlaAgBdtzdhH5y5OSWX18h5t1/eFYUvsc7EJkJr+6evHcSbXCSZmGAM=
+trusted comment: timestamp:1731620824
+or69yv7Uv1iSZGN5ISztpNDM4F+UgljqaGNzOB+cJEyzIDoYWFo1zzEeIKHHubc8RHyzQz032Bz9V2vxthZJBg==
+"""
+
+[files."warcat-0.3.2-windows-x86_64.zip"]
+sha256 = "86e8b7bbfe1117dc890c2caca90d63efab41e682f47b9c81eb8a2aadf8fbe62e"
+sha512 = "643f95208f3ee476ee0180cdcfd690947500e390c0a0a7f8a33ee103fc5ee5d89090d71d4787b027951d664cb8470dced9912c131cc9b8a22263afeaf55c28b5"
+blake2b = "520d566b89669f785e5c49b15b977bb2cfb1acb726952f48e1b4e04729823f2a4a4557b5a9c09964ab065f7e919d8fafefb3669533901cdd08574e682f68e805"
+blake3 = "c81cc5136d2362a4c7b2f0fa04134c21d935b36ed0f7ddb0408d6c3ec16ae00e"
+minisign = """
+untrusted comment: signature from rsign secret key
+RUQuQKHwtF7mW60n6KlQrFdn1b4ue3p7DbA3JoD1Q1c8akvHSmu0RBQ95rOECCUNcTQXcx/2UM1msyR3OwO2FluXKZ5DG9NRzwU=
+trusted comment: timestamp:1731620824
+9iQS2QD7+JCy1ODFhaP9gnVtPqq/yB3Ubw0QFlyPU/kEEz2pax8ewJBha4nz+Hma/5jgePvYd9JuIttN1ZM6DQ==
+"""
+
 # End of file
