@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.2 (2024-11-14)
 
 * Fixed: application named with version isn't detected as installer on macOS/Linux.
 
