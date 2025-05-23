@@ -532,6 +532,7 @@ impl PushDecoder {
             return Ok(PushDecoderEvent::Header { header });
         }
 
+        self.precheck_header()?;
         self.check_max_header_length()?;
 
         Ok(PushDecoderEvent::WantData)
@@ -564,6 +565,21 @@ impl PushDecoder {
         self.state = PushDecoderState::Block;
 
         Ok(header)
+    }
+
+    fn precheck_header(&self) -> Result<(), ProtocolError> {
+        // Okay to discard slice1 because we called make_contiguous() earlier.
+        let (buf, _slice1) = self.decompressor.get_ref().as_slices();
+
+        if buf.starts_with(b"WARC/") {
+            Ok(())
+        } else if buf.starts_with(b"\x1f\x8b") || buf.starts_with(b"\x28\xb5\x2f\xfd") {
+            Err(ProtocolError::new(ProtocolErrorKind::UnexpectedCompression))
+        } else if buf.len() >= 4 {
+            Err(ProtocolError::new(ProtocolErrorKind::UnknownHeader))
+        } else {
+            Ok(())
+        }
     }
 
     fn check_max_header_length(&self) -> Result<(), ProtocolError> {
@@ -882,5 +898,33 @@ mod tests {
 
         let event = decoder.get_event().unwrap();
         assert!(event.is_ready());
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    fn test_wrong_format() {
+        let data = b"CDX\r\n";
+        let reader = Decoder::new(Cursor::new(data), DecoderConfig::default()).unwrap();
+
+        let error = reader.read_header().unwrap_err();
+        dbg!(&error);
+        assert_eq!(
+            error.as_protocol().unwrap().kind(),
+            ProtocolErrorKind::UnknownHeader
+        );
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    fn test_unexpected_compression() {
+        let data = b"\x1f\x8babc";
+        let reader = Decoder::new(Cursor::new(data), DecoderConfig::default()).unwrap();
+
+        let error = reader.read_header().unwrap_err();
+        dbg!(&error);
+        assert_eq!(
+            error.as_protocol().unwrap().kind(),
+            ProtocolErrorKind::UnexpectedCompression
+        );
     }
 }

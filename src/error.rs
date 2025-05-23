@@ -317,6 +317,10 @@ impl ProtocolError {
         self.source = Some(source.into());
         self
     }
+
+    pub fn kind(&self) -> ProtocolErrorKind {
+        self.kind
+    }
 }
 
 impl From<ProtocolErrorKind> for ProtocolError {
@@ -325,10 +329,12 @@ impl From<ProtocolErrorKind> for ProtocolError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ProtocolErrorKind {
     IoNotSeekable,
+    UnknownHeader,
+    UnexpectedCompression,
     HeaderTooBig,
     MissingContentLength,
     ContentLengthMismatch,
@@ -352,6 +358,8 @@ impl Display for ProtocolErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let value = match self {
             Self::IoNotSeekable => "input/output not seekable",
+            Self::UnknownHeader => "unknown header (wrong file format or corrupted input)",
+            Self::UnexpectedCompression => "unexpected compressed data",
             Self::HeaderTooBig => "header too big",
             Self::MissingContentLength => "missing content length",
             Self::ContentLengthMismatch => "content length mismatch",
