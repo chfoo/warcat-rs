@@ -119,7 +119,7 @@ impl<N: EqIcase, V> FieldMap<N, V> {
             .map(|(_n, v)| v)
     }
 
-    pub fn get_all<'a, Q>(&'a self, name: &'a Q) -> impl Iterator<Item = &V> + 'a
+    pub fn get_all<'a, Q>(&'a self, name: &'a Q) -> impl Iterator<Item = &'a V> + 'a
     where
         Q: EqIcase + ?Sized,
         N: Borrow<Q>,

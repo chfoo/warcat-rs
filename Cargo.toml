@@ -4,14 +4,14 @@ members = ["xtask"]
 [package]
 name = "warcat"
 version = "0.3.2"
-edition = "2021"
+edition = "2024"
 license = "MPL-2.0"
 authors = ["Christopher Foo", "Warcat-rs contributors"]
 description = "Command-line tool and library for handling Web ARChive (WARC) files"
 repository = "https://github.com/chfoo/warcat-rs"
 categories = ["command-line-utilities", "parser-implementations"]
 keywords = ["archiving", "warc"]
-rust-version = "1.80"
+rust-version = "1.85"
 exclude = [
     "/.cargo",
     "/.github/ISSUE_TEMPLATE",

@@ -34,7 +34,7 @@ impl FieldsExt for HeaderFields {
         &self,
         name: N,
     ) -> Option<Result<u64, std::num::ParseIntError>> {
-        if let Some(Hstring::Text(ref value)) = self.get(name.as_ref()) {
+        if let Some(Hstring::Text(value)) = self.get(name.as_ref()) {
             Some(crate::parse::parse_u64_strict(value))
         } else {
             None
