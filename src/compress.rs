@@ -59,6 +59,11 @@ pub enum Format {
 }
 
 impl Format {
+    /// Returns whether the codec is identity (no change).
+    pub fn is_identity(&self) -> bool {
+        matches!(self, Self::Identity)
+    }
+
     /// Returns whether the codec supports concatenated members.
     pub fn supports_concatenation(&self) -> bool {
         match self {

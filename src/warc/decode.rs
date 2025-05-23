@@ -402,20 +402,23 @@ pub struct PushDecoder {
     decompressor: PushDecompressor<VecDeque<u8>>,
     decompressor_eof: bool,
     input_eof: bool,
-    /// Data that has not been decompresssed yet because it's for the next record.
+    // Data that has not been decompresssed yet because it's for the next record.
     unused_input_buf: VecDeque<u8>,
-    /// Number of bytes that have been decoded (excluding buffered "unused" bytes).
-    bytes_consumed: u64,
+    // Total number of bytes written into the decoder.
+    bytes_written_decoder: u64,
+    // Total number of bytes read from the decoder (not including bytes for the next record).
+    decoded_bytes_consumed: u64,
+    // Index of record boundary in the raw file.
     record_boundary_position: u64,
-    /// Total number of bytes to be read from the record block.
+    // Total number of bytes to be read from the record block.
     block_length: u64,
-    /// Number of bytes read so far from the record block.
+    // Number of bytes read so far from the record block.
     block_current_position: u64,
-    /// Maximum number of bytes that can be used for PushDecoderEvent::BlockData.
+    // Maximum number of bytes that can be used for PushDecoderEvent::BlockData.
     buf_output_max_len: usize,
-    /// Number of bytes borrowed for PushDecoderEvent::BlockData.
+    // Number of bytes borrowed for PushDecoderEvent::BlockData.
     buf_output_reference_len: usize,
-    /// Detected a compressed file that can't be randomly accessed
+    // Detected a compressed file that can't be randomly accessed
     has_rat_comp_fault: bool,
 }
 
@@ -432,7 +435,8 @@ impl PushDecoder {
             decompressor_eof: false,
             input_eof: false,
             unused_input_buf: VecDeque::with_capacity(BUFFER_LENGTH),
-            bytes_consumed: 0,
+            bytes_written_decoder: 0,
+            decoded_bytes_consumed: 0,
             record_boundary_position: 0,
             block_length: 0,
             block_current_position: 0,
@@ -542,7 +546,9 @@ impl PushDecoder {
         let length = header.content_length()?;
         let record_id = header.fields.get("WARC-Record-ID");
         let warc_type = header.fields.get("WARC-Type");
+
         self.decompressor.get_mut().drain(0..index);
+        self.decoded_bytes_consumed += index as u64;
 
         tracing::trace!(
             record_id,
@@ -596,6 +602,7 @@ impl PushDecoder {
 
             self.block_current_position += consume_len as u64;
             self.buf_output_reference_len = consume_len;
+            self.decoded_bytes_consumed += consume_len as u64;
 
             tracing::trace!(consume_len, "process block");
 
@@ -623,6 +630,7 @@ impl PushDecoder {
                 Err(ProtocolError::new(ProtocolErrorKind::InvalidRecordBoundary).into())
             } else {
                 self.decompressor.get_mut().drain(0..4);
+                self.decoded_bytes_consumed += 4;
 
                 self.state = PushDecoderState::EndOfSegment;
                 Ok(PushDecoderEvent::Continue)
@@ -668,11 +676,16 @@ impl PushDecoder {
             self.has_rat_comp_fault = true;
         }
 
-        self.record_boundary_position = self.bytes_consumed;
+        self.consume_unused_input()?;
+
+        if self.config.decompressor.format.is_identity() {
+            self.record_boundary_position = self.decoded_bytes_consumed;
+        } else {
+            self.record_boundary_position = self.bytes_written_decoder;
+        }
+
         self.decompressor_eof = false;
         self.input_eof = false;
-
-        self.consume_unused_input()?;
 
         if self.decompressor.get_ref().is_empty() {
             tracing::trace!("RecordBoundary -> PendingHeader");
@@ -693,11 +706,13 @@ impl PushDecoder {
             let write_len = self.decompressor.write(slice0)?;
             tracing::trace!(write_len, "consume unused input");
 
+            self.bytes_written_decoder += slice0.len() as u64;
+
             if write_len == 0 {
                 break;
             }
 
-            self.bytes_consumed += write_len as u64;
+            self.decoded_bytes_consumed += write_len as u64;
             self.unused_input_buf.drain(..write_len);
         }
         Ok(())
@@ -722,13 +737,13 @@ impl Write for PushDecoder {
         }
 
         let write_len = self.decompressor.write(buf)?;
+        self.bytes_written_decoder += write_len as u64;
 
         tracing::trace!(buf_len = buf.len(), write_len, "push decoder write");
 
         if write_len != 0 {
             // FIXME: handle the case where a single record is compressed as
             // several zstd frames
-            self.bytes_consumed += write_len as u64;
             Ok(write_len)
         } else {
             self.decompressor_eof = true;
@@ -798,17 +813,18 @@ mod tests {
         let event = decoder.get_event().unwrap();
         assert!(event.is_ready());
 
-        decoder.write_all(b"WARC/1.1\r\n").unwrap();
+        decoder.write_all(b"WARC/1.1\r\n").unwrap(); // len = 10
 
         let event = decoder.get_event().unwrap();
         assert!(event.is_want_data());
 
-        decoder.write_all(b"Content-Length: 12\r\n").unwrap();
-        decoder.write_all(b"\r\n").unwrap();
-        decoder.write_all(b"Hello ").unwrap();
+        decoder.write_all(b"Content-Length: 12\r\n").unwrap(); // len = 20
+        decoder.write_all(b"\r\n").unwrap(); // len = 2
+        decoder.write_all(b"Hello ").unwrap(); // len = 6
 
         let event = decoder.get_event().unwrap();
         assert!(event.is_header());
+        assert_eq!(decoder.record_boundary_position(), 0);
 
         let event = decoder.get_event().unwrap();
         assert!(event.is_block_data());
@@ -817,7 +833,7 @@ mod tests {
         let event = decoder.get_event().unwrap();
         assert!(event.is_want_data());
 
-        decoder.write_all(b"world!\r\n").unwrap();
+        decoder.write_all(b"world!\r\n").unwrap(); // len = 8
 
         let event = decoder.get_event().unwrap();
         assert!(event.is_block_data());
@@ -829,7 +845,7 @@ mod tests {
         let event = decoder.get_event().unwrap();
         assert!(event.is_want_data());
 
-        decoder.write_all(b"\r\n").unwrap();
+        decoder.write_all(b"\r\n").unwrap(); // len = 2
         decoder.write_all(b"WARC/1.1\r\n").unwrap();
 
         let event = decoder.get_event().unwrap();
@@ -853,6 +869,7 @@ mod tests {
 
         let event = decoder.get_event().unwrap();
         assert!(event.is_header());
+        assert_eq!(decoder.record_boundary_position(), 48);
 
         let event = decoder.get_event().unwrap();
         assert!(event.is_continue());
