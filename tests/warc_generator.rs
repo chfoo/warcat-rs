@@ -9,7 +9,7 @@ use warcat::{
     warc::{EncStateHeader, Encoder, EncoderConfig},
 };
 
-pub fn generate_warc_gzip() -> Vec<u8> {
+pub fn generate_warc_gzip() -> (Vec<u8>, Vec<u64>) {
     let mut config = EncoderConfig::default();
     config.compressor.format = warcat::compress::Format::Gzip;
     let encoder = Encoder::new(Vec::new(), config);
@@ -18,7 +18,7 @@ pub fn generate_warc_gzip() -> Vec<u8> {
 }
 
 #[cfg(feature = "zstd")]
-pub fn generate_warc_zst(compressed_dict: bool) -> Vec<u8> {
+pub fn generate_warc_zst(compressed_dict: bool) -> (Vec<u8>, Vec<u64>) {
     let mut sample = vec![0; 10000];
     let mut rng = Xoshiro256PlusPlus::seed_from_u64(1234567);
     rng.fill_bytes(&mut sample);
@@ -38,8 +38,11 @@ pub fn generate_warc_zst(compressed_dict: bool) -> Vec<u8> {
     generate(encoder)
 }
 
-fn generate(mut encoder: Encoder<EncStateHeader, Vec<u8>>) -> Vec<u8> {
+fn generate(mut encoder: Encoder<EncStateHeader, Vec<u8>>) -> (Vec<u8>, Vec<u64>) {
+    let mut offsets = Vec::new();
+
     for round in 0..100 {
+        offsets.push(encoder.get_ref().len() as u64);
         let mut rng = Xoshiro256PlusPlus::seed_from_u64(round);
 
         let length: u64 = rng.gen_range(100 + round * 123..200 + round * 123);
@@ -65,5 +68,5 @@ fn generate(mut encoder: Encoder<EncStateHeader, Vec<u8>>) -> Vec<u8> {
         encoder = block_encoder.finish_block().unwrap();
     }
 
-    encoder.finish().unwrap()
+    (encoder.finish().unwrap(), offsets)
 }

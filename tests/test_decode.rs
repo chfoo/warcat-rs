@@ -1,7 +1,10 @@
-use std::io::{Cursor, Read};
+use std::io::{Cursor, Read, Write};
 
 use warcat::{
-    compress::Dictionary, io::LogicalPosition, verify::Verifier, warc::{DecStateHeader, Decoder, DecoderConfig}
+    compress::Dictionary,
+    io::LogicalPosition,
+    verify::Verifier,
+    warc::{Decoder, DecoderConfig, PushDecoder, PushDecoderEvent},
 };
 
 mod warc_generator;
@@ -9,50 +12,85 @@ mod warc_generator;
 #[tracing_test::traced_test]
 #[test]
 fn test_decode_gzip() {
-    let input = warc_generator::generate_warc_gzip();
+    let (input, offsets) = warc_generator::generate_warc_gzip();
     dbg!(input.len());
 
     let mut config = DecoderConfig::default();
     config.decompressor.format = warcat::compress::Format::Gzip;
 
-    let decoder = Decoder::new(Cursor::new(input), config).unwrap();
-
-    check_decode(decoder);
+    check_push_decoder(input.clone(), config.clone(), offsets);
+    check_decoder(input, config);
 }
 
 #[cfg(feature = "zstd")]
 #[tracing_test::traced_test]
 #[test]
 fn test_decode_zst() {
-    let input = warc_generator::generate_warc_zst(false);
+    let (input, offsets) = warc_generator::generate_warc_zst(false);
     dbg!(input.len());
 
     let mut config = DecoderConfig::default();
     config.decompressor.format = warcat::compress::Format::Zstandard;
     config.decompressor.dictionary = Dictionary::WarcZstd(Vec::new());
 
-    let decoder = Decoder::new(Cursor::new(input), config).unwrap();
-
-    check_decode(decoder);
+    check_push_decoder(input.clone(), config.clone(), offsets);
+    check_decoder(input, config);
 }
 
 #[cfg(feature = "zstd")]
 #[tracing_test::traced_test]
 #[test]
 fn test_decode_zst_compressed_dict() {
-    let input = warc_generator::generate_warc_zst(true);
+    let (input, offsets) = warc_generator::generate_warc_zst(true);
     dbg!(input.len());
 
     let mut config = DecoderConfig::default();
     config.decompressor.format = warcat::compress::Format::Zstandard;
     config.decompressor.dictionary = Dictionary::WarcZstd(Vec::new());
 
-    let decoder = Decoder::new(Cursor::new(input), config).unwrap();
-
-    check_decode(decoder);
+    check_push_decoder(input, config, offsets);
 }
 
-fn check_decode(mut decoder: Decoder<DecStateHeader, Cursor<Vec<u8>>>) {
+fn check_push_decoder(input: Vec<u8>, config: DecoderConfig, mut offsets: Vec<u64>) {
+    let mut decoder = PushDecoder::new(config).unwrap();
+    let mut verifier = Verifier::new();
+    let mut input = Cursor::new(input);
+
+    // dbg!(&offsets);
+
+    loop {
+        match decoder.get_event().unwrap() {
+            PushDecoderEvent::Ready
+            | PushDecoderEvent::WantData
+            | PushDecoderEvent::WantDataOrEof => {
+                let mut buf = vec![0; 4096];
+                let len = input.read(&mut buf).unwrap();
+                buf.truncate(len);
+                decoder.write_all(&buf).unwrap();
+
+                if len == 0 {
+                    break;
+                }
+            }
+
+            PushDecoderEvent::Continue => {}
+            PushDecoderEvent::Header { header } => {
+                assert_eq!(decoder.record_boundary_position(), offsets[0]);
+                offsets.drain(0..1);
+                verifier.begin_record(&header).unwrap();
+            }
+            PushDecoderEvent::BlockData { data } => {
+                verifier.block_data(data);
+            }
+            PushDecoderEvent::EndRecord => {
+                verifier.end_record();
+            }
+        }
+    }
+}
+
+fn check_decoder(input: Vec<u8>, config: DecoderConfig) {
+    let mut decoder = Decoder::new(Cursor::new(input), config).unwrap();
     let mut verifier = Verifier::new();
     let mut count = 0;
 

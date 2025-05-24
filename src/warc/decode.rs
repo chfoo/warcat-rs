@@ -321,7 +321,7 @@ impl<R: Read, S> LogicalPosition for Decoder<S, R> {
 pub enum PushDecoderEvent<'a> {
     /// No input data has been received yet.
     Ready,
-    /// More data is needed.
+    /// More data of non-zero size is needed.
     WantData,
     /// Either more data or end-of-file (EOF) is needed.
     WantDataOrEof,
@@ -403,7 +403,7 @@ pub struct PushDecoder {
     decompressor_eof: bool,
     input_eof: bool,
     // Data that has not been decompresssed yet because it's for the next record.
-    unused_input_buf: VecDeque<u8>,
+    deferred_input_buf: VecDeque<u8>,
     // Total number of bytes written into the decoder.
     bytes_written_decoder: u64,
     // Total number of bytes read from the decoder (not including bytes for the next record).
@@ -434,7 +434,7 @@ impl PushDecoder {
             decompressor,
             decompressor_eof: false,
             input_eof: false,
-            unused_input_buf: VecDeque::with_capacity(BUFFER_LENGTH),
+            deferred_input_buf: VecDeque::with_capacity(BUFFER_LENGTH),
             bytes_written_decoder: 0,
             decoded_bytes_consumed: 0,
             record_boundary_position: 0,
@@ -456,7 +456,7 @@ impl PushDecoder {
     /// Returns whether internal buffer contains unused bytes that can be
     /// used to decode the next record.
     pub fn has_next_record(&self) -> bool {
-        !self.unused_input_buf.is_empty()
+        !self.deferred_input_buf.is_empty()
     }
 
     /// Returns the maximum buffer length that can be used in [`PushDecoderEvent::BlockData`].
@@ -518,7 +518,7 @@ impl PushDecoder {
     pub fn reset(&mut self) -> std::io::Result<()> {
         self.state = PushDecoderState::PendingHeader;
         self.decompressor.get_mut().clear();
-        self.unused_input_buf.clear();
+        self.deferred_input_buf.clear();
         self.decompressor.start_next_segment()?;
         Ok(())
     }
@@ -681,6 +681,12 @@ impl PushDecoder {
         // dbg!(String::from_utf8_lossy(self.decompressor.get_ref().as_slices().0));
         // dbg!(String::from_utf8_lossy(self.decompressor.get_ref().as_slices().1));
 
+        if self.config.decompressor.format.is_identity() {
+            self.record_boundary_position = self.decoded_bytes_consumed;
+        } else {
+            self.record_boundary_position = self.bytes_written_decoder;
+        }
+
         if self.config.decompressor.format.supports_concatenation()
             && self.decompressor.get_ref().is_empty()
         {
@@ -692,13 +698,7 @@ impl PushDecoder {
             self.has_rat_comp_fault = true;
         }
 
-        self.consume_unused_input()?;
-
-        if self.config.decompressor.format.is_identity() {
-            self.record_boundary_position = self.decoded_bytes_consumed;
-        } else {
-            self.record_boundary_position = self.bytes_written_decoder;
-        }
+        self.consume_deferred_input_buf()?;
 
         self.decompressor_eof = false;
         self.input_eof = false;
@@ -714,22 +714,21 @@ impl PushDecoder {
         Ok(())
     }
 
-    fn consume_unused_input(&mut self) -> Result<(), GeneralError> {
-        tracing::trace!(len = self.unused_input_buf.len(), "consume unused input");
+    fn consume_deferred_input_buf(&mut self) -> Result<(), GeneralError> {
+        tracing::trace!(len = self.deferred_input_buf.len(), "consume deferred input buf");
 
-        while !self.unused_input_buf.is_empty() {
-            let (slice0, _slice1) = self.unused_input_buf.as_slices();
+        while !self.deferred_input_buf.is_empty() {
+            let (slice0, _slice1) = self.deferred_input_buf.as_slices();
             let write_len = self.decompressor.write(slice0)?;
-            tracing::trace!(write_len, "consume unused input");
+            tracing::trace!(write_len, "consume deferred input buf");
 
-            self.bytes_written_decoder += slice0.len() as u64;
+            self.bytes_written_decoder += write_len as u64;
 
             if write_len == 0 {
                 break;
             }
 
-            self.decoded_bytes_consumed += write_len as u64;
-            self.unused_input_buf.drain(..write_len);
+            self.deferred_input_buf.drain(..write_len);
         }
         Ok(())
     }
@@ -763,7 +762,7 @@ impl Write for PushDecoder {
             Ok(write_len)
         } else {
             self.decompressor_eof = true;
-            self.unused_input_buf.write_all(buf)?;
+            self.deferred_input_buf.write_all(buf)?;
             Ok(buf.len())
         }
     }
