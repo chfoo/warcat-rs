@@ -349,6 +349,44 @@ mod tests {
     }
 
     #[test]
+    fn test_header_parse_response_empty_reason_phrase() {
+        let data = "HTTP/1.1 200 \r\n\
+            Server: example.com\r\n\
+            \r\n";
+
+        let header = MessageHeader::parse(data.as_bytes()).unwrap();
+
+        let status_line = header.start_line.as_status().unwrap();
+
+        assert_eq!(status_line.http_version, "HTTP/1.1");
+        assert_eq!(status_line.status_code, 200);
+        assert_eq!(status_line.reason_phrase.as_text(), Some(""));
+        assert_eq!(header.fields.len(), 1);
+        assert_eq!(header.fields.get("Server"), Some(&"example.com".into()));
+
+        let mut buf = Vec::new();
+        header.serialize(&mut buf).unwrap();
+        assert_eq!(buf, data.as_bytes());
+    }
+
+    #[test]
+    fn test_header_parse_response_missing_mandatory_space() {
+        let data = "HTTP/1.1 200\r\n\
+            Server: example.com\r\n\
+            \r\n";
+
+        let header = MessageHeader::parse(data.as_bytes()).unwrap();
+
+        let status_line = header.start_line.as_status().unwrap();
+
+        assert_eq!(status_line.http_version, "HTTP/1.1");
+        assert_eq!(status_line.status_code, 200);
+        assert_eq!(status_line.reason_phrase.as_text(), Some(""));
+        assert_eq!(header.fields.len(), 1);
+        assert_eq!(header.fields.get("Server"), Some(&"example.com".into()));
+    }
+
+    #[test]
     fn test_header_parse_other_names() {
         let data = "http/1.1 200 OK\r\n\
             Server: example.com\r\n\r\n";

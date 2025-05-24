@@ -1,10 +1,10 @@
 use nom::{
+    IResult,
     branch::alt,
     bytes::complete::{tag, tag_no_case, take_while, take_while1},
     character::complete::{digit1, line_ending},
     combinator::{map, recognize, verify},
     sequence::{terminated, tuple},
-    IResult,
 };
 
 pub enum StartLine<'a> {
@@ -45,6 +45,10 @@ pub fn request_line(input: &[u8]) -> IResult<&[u8], RequestLine<'_>> {
 }
 
 pub fn status_line(input: &[u8]) -> IResult<&[u8], StatusLine<'_>> {
+    alt((status_line_strict, status_line_non_strict))(input)
+}
+
+fn status_line_strict(input: &[u8]) -> IResult<&[u8], StatusLine<'_>> {
     let parts = tuple((
         http_version,
         tag(b" "),
@@ -60,6 +64,17 @@ pub fn status_line(input: &[u8]) -> IResult<&[u8], StatusLine<'_>> {
             status_code: output.2,
             reason_phrase: output.4,
         }
+    })(input)
+}
+
+fn status_line_non_strict(input: &[u8]) -> IResult<&[u8], StatusLine<'_>> {
+    // https://mailman.nginx.org/pipermail/nginx/2013-June/039186.html
+    let parts = tuple((http_version, tag(b" "), status_code));
+
+    map(parts, |output: (&[u8], &[u8], &[u8])| StatusLine {
+        http_version: output.0,
+        status_code: output.2,
+        reason_phrase: b"",
     })(input)
 }
 

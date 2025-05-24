@@ -2,7 +2,7 @@ use crate::error::{GeneralError, ProtocolError, ProtocolErrorKind};
 
 use super::{
     codec::CodecPipeline,
-    header::{fields::FieldsExt, MessageHeader, StartLine, TrailerFields},
+    header::{MessageHeader, StartLine, TrailerFields, fields::FieldsExt},
 };
 
 const MAX_HEADER_LENGTH: usize = 32768;
@@ -88,11 +88,11 @@ impl Receiver {
 
     fn process_header(&mut self) -> Result<ReceiverEvent, GeneralError> {
         if let Some(index) = crate::parse::scan_header_deliminator(&self.input_buf) {
+            tracing::trace!(len = index, "process header");
+
             let header_bytes = &self.input_buf[0..index];
             let header = MessageHeader::parse(header_bytes)?;
             self.input_buf.drain(0..index);
-
-            tracing::trace!(len = index, "process header");
 
             self.config_codecs(&header)?;
             self.config_content_length(&header)?;
@@ -341,7 +341,7 @@ mod tests {
             }
         }
 
-        assert_eq!(&output, &[b'a';10000]);
+        assert_eq!(&output, &[b'a'; 10000]);
     }
 
     #[tracing_test::traced_test]
