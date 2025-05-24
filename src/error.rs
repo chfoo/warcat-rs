@@ -210,17 +210,17 @@ impl Display for ParseError {
     }
 }
 
-impl<T: std::fmt::Debug> From<nom::Err<nom::error::Error<&[T]>>> for ParseError {
-    fn from(value: nom::Err<nom::error::Error<&[T]>>) -> Self {
+impl From<nom::Err<nom::error::Error<&[u8]>>> for ParseError {
+    fn from(value: nom::Err<nom::error::Error<&[u8]>>) -> Self {
         match value {
             nom::Err::Incomplete(_needed) => ParseError::new(ParseErrorKind::IncompleteInput),
             nom::Err::Error(error) | nom::Err::Failure(error) => {
                 ParseError::new(ParseErrorKind::Syntax)
-                    .with_position(error.input.len() as u64)
-                    .with_snippet(format!(
-                        "{:?}",
-                        &error.input[error.input.len().saturating_sub(10)..]
-                    ))
+                    .with_snippet(
+                        error.input[0..error.input.len().min(16)]
+                            .escape_ascii()
+                            .to_string(),
+                    )
                     .with_source(nom::error::Error::new(error.input.len(), error.code))
             }
         }
