@@ -1,11 +1,11 @@
 use std::{fs::File, io::Write};
 
 use cargo_license::GetDependenciesOpt;
-use cargo_metadata::MetadataCommand;
+use cargo_license_cargo_metadata::MetadataCommand;
 
 pub fn generate_license_file() -> anyhow::Result<()> {
     let mut command = MetadataCommand::new();
-    command.features(cargo_metadata::CargoOpt::SomeFeatures(vec![
+    command.features(cargo_license_cargo_metadata::CargoOpt::SomeFeatures(vec![
         "bin".to_string()
     ]));
 

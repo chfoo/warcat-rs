@@ -1,11 +1,11 @@
 use nom::{
+    IResult, Parser,
     branch::alt,
-    bytes::complete::{tag, take_while, take_while1, take_while_m_n},
+    bytes::complete::{tag, take_while, take_while_m_n, take_while1},
     character::complete::{line_ending, space0, space1},
     combinator::{all_consuming, map, recognize},
     multi::{many0, many0_count},
     sequence::{delimited, pair, preceded, separated_pair, terminated},
-    IResult,
 };
 
 pub struct FieldPairRef<'a> {
@@ -23,14 +23,14 @@ impl<'a> From<(&'a [u8], &'a [u8])> for FieldPairRef<'a> {
 }
 
 pub fn field_pairs(input: &[u8]) -> IResult<&[u8], Vec<FieldPairRef<'_>>> {
-    many0(terminated(field_pair, line_ending))(input)
+    many0(terminated(field_pair, line_ending)).parse(input)
 }
 
 fn field_pair(input: &[u8]) -> IResult<&[u8], FieldPairRef<'_>> {
     let val = delimited(space0, field_value, space0);
     let pair = separated_pair(field_name, tag(":"), val);
 
-    map(pair, |p| p.into())(input)
+    map(pair, |p| p.into()).parse(input)
 }
 
 pub fn field_name(input: &[u8]) -> IResult<&[u8], &[u8]> {
@@ -43,18 +43,19 @@ pub fn token(input: &[u8]) -> IResult<&[u8], &[u8]> {
 
 pub fn field_value(input: &[u8]) -> IResult<&[u8], &[u8]> {
     let a = alt((field_content, obs_fold));
-    recognize(many0_count(a))(input)
+    recognize(many0_count(a)).parse(input)
 }
 
 pub fn field_value_no_multline(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    recognize(many0_count(field_content))(input)
+    recognize(many0_count(field_content)).parse(input)
 }
 
 fn field_content(input: &[u8]) -> IResult<&[u8], &[u8]> {
     recognize(pair(
         take_while_m_n(1, 1, is_field_vchar),
         take_while(is_field_char),
-    ))(input)
+    ))
+    .parse(input)
 }
 
 fn is_field_vchar(b: u8) -> bool {
@@ -74,7 +75,7 @@ pub fn is_obs_text(b: u8) -> bool {
 }
 
 fn obs_fold(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    recognize(pair(line_ending, space1))(input)
+    recognize(pair(line_ending, space1)).parse(input)
 }
 
 pub struct MediaType<'a> {
@@ -84,7 +85,7 @@ pub struct MediaType<'a> {
 }
 
 pub fn media_type(input: &[u8]) -> IResult<&[u8], MediaType<'_>> {
-    let types = separated_pair(type_, tag(b"/"), subtype);
+    let types = separated_pair(type_, tag("/"), subtype);
 
     map(
         all_consuming(pair(types, parameters)),
@@ -93,7 +94,8 @@ pub fn media_type(input: &[u8]) -> IResult<&[u8], MediaType<'_>> {
             subtype: types.1,
             parameters,
         },
-    )(input)
+    )
+    .parse(input)
 }
 
 fn type_(input: &[u8]) -> IResult<&[u8], &[u8]> {
@@ -107,11 +109,11 @@ fn subtype(input: &[u8]) -> IResult<&[u8], &[u8]> {
 type ParametersList<'a> = Vec<(&'a [u8], &'a [u8])>;
 
 fn parameters(input: &[u8]) -> IResult<&[u8], ParametersList> {
-    many0(preceded(delimited(space0, tag(";"), space0), parameter))(input)
+    many0(preceded(delimited(space0, tag(";"), space0), parameter)).parse(input)
 }
 
 fn parameter(input: &[u8]) -> IResult<&[u8], (&[u8], &[u8])> {
-    separated_pair(attribute, tag("="), value)(input)
+    separated_pair(attribute, tag("="), value).parse(input)
 }
 
 fn attribute(input: &[u8]) -> IResult<&[u8], &[u8]> {

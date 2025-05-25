@@ -187,21 +187,21 @@ mod parse {
     use core::str;
 
     use nom::{
+        IResult, Parser,
         bytes::streaming::{tag, take_while},
         character::streaming::{hex_digit1, line_ending},
         combinator::map,
         sequence::{pair, terminated},
-        IResult,
     };
 
     pub fn chunk_size_line(input: &[u8]) -> IResult<&[u8], u64> {
-        terminated(map(pair(chunk_size, chunk_ext), |p| p.0), tag(b"\r\n"))(input)
+        terminated(map(pair(chunk_size, chunk_ext), |p| p.0), tag("\r\n")).parse(input)
     }
 
     fn chunk_size(input: &[u8]) -> IResult<&[u8], u64> {
         map(hex_digit1, |b: &[u8]| {
             u64::from_str_radix(str::from_utf8(b).unwrap(), 16).unwrap()
-        })(input)
+        }).parse(input)
     }
 
     fn chunk_ext(input: &[u8]) -> IResult<&[u8], &[u8]> {

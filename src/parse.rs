@@ -1,6 +1,7 @@
 //! Parsing utilities.
 use std::{borrow::Cow, cell::LazyCell};
 
+use nom::Parser;
 use regex::bytes::Regex;
 
 use crate::error::ParseError;
@@ -27,7 +28,7 @@ pub fn parse_name_value_fields(value: &[u8]) -> Result<Vec<fields::FieldPairRef>
 
 /// Returns whether the value is a valid name in a HTTP-like field.
 pub fn validate_field_name(value: &[u8]) -> Result<(), ParseError> {
-    match nom::combinator::all_consuming(fields::field_name)(value) {
+    match nom::combinator::all_consuming(fields::field_name).parse(value) {
         Ok((_input, _output)) => Ok(()),
         Err(error) => Err(error.into()),
     }
@@ -42,7 +43,7 @@ pub fn validate_field_value(value: &[u8], multiline: bool) -> Result<(), ParseEr
     } else {
         fields::field_value_no_multline
     };
-    match nom::combinator::all_consuming(f)(value) {
+    match nom::combinator::all_consuming(f).parse(value) {
         Ok((_input, _output)) => Ok(()),
         Err(error) => Err(error.into()),
     }

@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use rand::{Rng, RngCore};
-use rand_xoshiro::{rand_core::SeedableRng, Xoshiro256PlusPlus};
+use rand_xoshiro::{Xoshiro256PlusPlus, rand_core::SeedableRng};
 use warcat::{
     compress::Dictionary,
     digest::{AlgorithmName, Digest, Hasher},
@@ -45,7 +45,7 @@ fn generate(mut encoder: Encoder<EncStateHeader, Vec<u8>>) -> (Vec<u8>, Vec<u64>
         offsets.push(encoder.get_ref().len() as u64);
         let mut rng = Xoshiro256PlusPlus::seed_from_u64(round);
 
-        let length: u64 = rng.gen_range(100 + round * 123..200 + round * 123);
+        let length: u64 = rng.random_range(100 + round * 123..200 + round * 123);
 
         let mut data: Vec<u8> = vec![0; length as usize];
         rng.fill_bytes(&mut data);

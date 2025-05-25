@@ -1,10 +1,10 @@
 use nom::{
-    IResult,
+    IResult, Parser,
     branch::alt,
     bytes::complete::{tag, tag_no_case, take_while, take_while1},
     character::complete::{digit1, line_ending},
     combinator::{map, recognize, verify},
-    sequence::{terminated, tuple},
+    sequence::terminated,
 };
 
 pub enum StartLine<'a> {
@@ -28,11 +28,11 @@ pub fn start_line(input: &[u8]) -> IResult<&[u8], StartLine<'_>> {
     let status_line = map(status_line, StartLine::StatusLine);
     let request_line = map(request_line, StartLine::RequestLine);
 
-    terminated(alt((status_line, request_line)), line_ending)(input)
+    terminated(alt((status_line, request_line)), line_ending).parse(input)
 }
 
 pub fn request_line(input: &[u8]) -> IResult<&[u8], RequestLine<'_>> {
-    let parts = tuple((method, tag(b" "), request_target, tag(b" "), http_version));
+    let parts = (method, tag(" "), request_target, tag(" "), http_version);
 
     #[allow(clippy::type_complexity)]
     map(parts, |output: (&[u8], &[u8], &[u8], &[u8], &[u8])| {
@@ -41,21 +41,16 @@ pub fn request_line(input: &[u8]) -> IResult<&[u8], RequestLine<'_>> {
             request_target: output.2,
             http_version: output.4,
         }
-    })(input)
+    })
+    .parse(input)
 }
 
 pub fn status_line(input: &[u8]) -> IResult<&[u8], StatusLine<'_>> {
-    alt((status_line_strict, status_line_non_strict))(input)
+    alt((status_line_strict, status_line_non_strict)).parse(input)
 }
 
 fn status_line_strict(input: &[u8]) -> IResult<&[u8], StatusLine<'_>> {
-    let parts = tuple((
-        http_version,
-        tag(b" "),
-        status_code,
-        tag(b" "),
-        reason_phrase,
-    ));
+    let parts = (http_version, tag(" "), status_code, tag(" "), reason_phrase);
 
     #[allow(clippy::type_complexity)]
     map(parts, |output: (&[u8], &[u8], &[u8], &[u8], &[u8])| {
@@ -64,18 +59,20 @@ fn status_line_strict(input: &[u8]) -> IResult<&[u8], StatusLine<'_>> {
             status_code: output.2,
             reason_phrase: output.4,
         }
-    })(input)
+    })
+    .parse(input)
 }
 
 fn status_line_non_strict(input: &[u8]) -> IResult<&[u8], StatusLine<'_>> {
     // https://mailman.nginx.org/pipermail/nginx/2013-June/039186.html
-    let parts = tuple((http_version, tag(b" "), status_code));
+    let parts = (http_version, tag(" "), status_code);
 
     map(parts, |output: (&[u8], &[u8], &[u8])| StatusLine {
         http_version: output.0,
         status_code: output.2,
         reason_phrase: b"",
-    })(input)
+    })
+    .parse(input)
 }
 
 fn method(input: &[u8]) -> IResult<&[u8], &[u8]> {
@@ -89,21 +86,22 @@ fn request_target(input: &[u8]) -> IResult<&[u8], &[u8]> {
 fn http_version(input: &[u8]) -> IResult<&[u8], &[u8]> {
     // Newer HTTP specifications requires the http-name to be case-sensitive,
     // but we should be lenient instead.
-    recognize(tuple((
-        tag_no_case(b"HTTP"),
-        tag(b"/"),
+    recognize((
+        tag_no_case("HTTP"),
+        tag("/"),
         one_digit,
-        tag(b"."),
+        tag("."),
         one_digit,
-    )))(input)
+    ))
+    .parse(input)
 }
 
 fn one_digit(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    verify(digit1, |i: &[u8]| i.len() == 1)(input)
+    verify(digit1, |i: &[u8]| i.len() == 1).parse(input)
 }
 
 fn status_code(input: &[u8]) -> IResult<&[u8], &[u8]> {
-    verify(digit1, |i: &[u8]| i.len() == 3)(input)
+    verify(digit1, |i: &[u8]| i.len() == 3).parse(input)
 }
 
 fn reason_phrase(input: &[u8]) -> IResult<&[u8], &[u8]> {
