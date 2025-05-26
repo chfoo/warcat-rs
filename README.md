@@ -37,4 +37,4 @@ The program will be placed in the `target` directory.
 
 ## License
 
-Copyright 2024 Christopher Foo. Licensed under Mozilla Public License 2.0
+Copyright 2024-2025 Christopher Foo. Licensed under Mozilla Public License 2.0

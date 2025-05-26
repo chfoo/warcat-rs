@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3 (2025-05-26)
+
+* Fixed: parse error for HTTP responses without a space after the status code (#3).
+* Fixed: wrong record boundaries listed for uncompressed WARC files (#4).
+* Added: new errors for unknown headers or unexpected compressed files (#5).
+
 ## 0.3.2 (2024-11-14)
 
 * Fixed: application named with version isn't detected as installer on macOS/Linux.

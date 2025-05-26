@@ -15,7 +15,7 @@ Repository:
     https://github.com/oyvindln/adler2
 
 
-ahash 0.8.11
+ahash 0.8.12
 -----
 
 Authors:
@@ -81,7 +81,7 @@ Repository:
     https://github.com/nical/android_system_properties
 
 
-anstream 0.6.15
+anstream 0.6.18
 -----
 
 Authors:
@@ -92,7 +92,7 @@ Repository:
     https://github.com/rust-cli/anstyle.git
 
 
-anstyle 1.0.8
+anstyle 1.0.10
 -----
 
 Authors:
@@ -103,7 +103,7 @@ Repository:
     https://github.com/rust-cli/anstyle.git
 
 
-anstyle-parse 0.2.5
+anstyle-parse 0.2.6
 -----
 
 Authors:
@@ -114,18 +114,7 @@ Repository:
     https://github.com/rust-cli/anstyle.git
 
 
-anstyle-query 1.1.1
------
-
-Authors:
-    <unknown>
-License:
-    Apache-2.0 OR MIT
-Repository:
-    https://github.com/rust-cli/anstyle
-
-
-anstyle-wincon 3.0.4
+anstyle-query 1.1.2
 -----
 
 Authors:
@@ -136,7 +125,18 @@ Repository:
     https://github.com/rust-cli/anstyle.git
 
 
-anyhow 1.0.89
+anstyle-wincon 3.0.8
+-----
+
+Authors:
+    <unknown>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/rust-cli/anstyle.git
+
+
+anyhow 1.0.98
 -----
 
 Authors:
@@ -192,7 +192,7 @@ Repository:
     https://github.com/marshallpierce/rust-base64
 
 
-bitflags 2.6.0
+bitflags 2.9.1
 -----
 
 Authors:
@@ -214,7 +214,7 @@ Repository:
     https://github.com/RustCrypto/hashes
 
 
-blake3 1.5.4
+blake3 1.8.2
 -----
 
 Authors:
@@ -237,7 +237,7 @@ Repository:
     https://github.com/RustCrypto/utils
 
 
-brotli 7.0.0
+brotli 8.0.1
 -----
 
 Authors:
@@ -249,7 +249,7 @@ Repository:
     https://github.com/dropbox/rust-brotli
 
 
-brotli-decompressor 4.0.1
+brotli-decompressor 5.0.0
 -----
 
 Authors:
@@ -261,7 +261,7 @@ Repository:
     https://github.com/dropbox/rust-brotli-decompressor
 
 
-bstr 1.10.0
+bstr 1.12.0
 -----
 
 Authors:
@@ -272,7 +272,7 @@ Repository:
     https://github.com/BurntSushi/bstr
 
 
-bumpalo 3.16.0
+bumpalo 3.17.0
 -----
 
 Authors:
@@ -281,17 +281,6 @@ License:
     Apache-2.0 OR MIT
 Repository:
     https://github.com/fitzgen/bumpalo
-
-
-byteorder 1.5.0
------
-
-Authors:
-    Andrew Gallant <jamslam@gmail.com>
-License:
-    MIT OR Unlicense
-Repository:
-    https://github.com/BurntSushi/byteorder
 
 
 castaway 0.2.3
@@ -316,7 +305,7 @@ Repository:
     https://github.com/alexcrichton/cfg-if
 
 
-chrono 0.4.38
+chrono 0.4.41
 -----
 
 Authors:
@@ -360,7 +349,7 @@ Repository:
     https://github.com/enarx/ciborium
 
 
-clap 4.5.20
+clap 4.5.38
 -----
 
 Authors:
@@ -371,7 +360,7 @@ Repository:
     https://github.com/clap-rs/clap
 
 
-clap-markdown 0.1.4
+clap-markdown 0.1.5
 -----
 
 Authors:
@@ -382,7 +371,7 @@ Repository:
     https://github.com/ConnorGray/clap-markdown
 
 
-clap_builder 4.5.20
+clap_builder 4.5.38
 -----
 
 Authors:
@@ -393,7 +382,7 @@ Repository:
     https://github.com/clap-rs/clap
 
 
-clap_derive 4.5.18
+clap_derive 4.5.32
 -----
 
 Authors:
@@ -404,7 +393,7 @@ Repository:
     https://github.com/clap-rs/clap
 
 
-clap_lex 0.7.2
+clap_lex 0.7.4
 -----
 
 Authors:
@@ -415,7 +404,7 @@ Repository:
     https://github.com/clap-rs/clap
 
 
-colorchoice 1.0.2
+colorchoice 1.0.3
 -----
 
 Authors:
@@ -423,10 +412,10 @@ Authors:
 License:
     Apache-2.0 OR MIT
 Repository:
-    https://github.com/rust-cli/anstyle
+    https://github.com/rust-cli/anstyle.git
 
 
-compact_str 0.8.0
+compact_str 0.8.1
 -----
 
 Authors:
@@ -437,7 +426,7 @@ Repository:
     https://github.com/ParkMyCar/compact_str
 
 
-console 0.15.8
+console 0.15.11
 -----
 
 Authors:
@@ -470,7 +459,7 @@ Repository:
     https://github.com/servo/core-foundation-rs
 
 
-cpufeatures 0.2.14
+cpufeatures 0.2.17
 -----
 
 Authors:
@@ -504,7 +493,7 @@ Repository:
     https://github.com/srijs/rust-crc32fast
 
 
-crossbeam-channel 0.5.13
+crossbeam-channel 0.5.15
 -----
 
 Authors:
@@ -515,7 +504,7 @@ Repository:
     https://github.com/crossbeam-rs/crossbeam
 
 
-crossbeam-deque 0.8.5
+crossbeam-deque 0.8.6
 -----
 
 Authors:
@@ -537,7 +526,7 @@ Repository:
     https://github.com/crossbeam-rs/crossbeam
 
 
-crossbeam-utils 0.8.20
+crossbeam-utils 0.8.21
 -----
 
 Authors:
@@ -570,15 +559,15 @@ Repository:
     https://github.com/crossterm-rs/crossterm-winapi
 
 
-crunchy 0.2.2
+crunchy 0.2.3
 -----
 
 Authors:
-    Vurich <jackefransham@hotmail.co.uk>
+    Eira Fransham <jackefransham@gmail.com>
 License:
     MIT
 Repository:
-    <unknown>
+    https://github.com/eira-fransham/crunchy
 
 
 crypto-common 0.1.6
@@ -592,7 +581,7 @@ Repository:
     https://github.com/RustCrypto/traits
 
 
-csv 1.3.0
+csv 1.3.1
 -----
 
 Authors:
@@ -603,7 +592,7 @@ Repository:
     https://github.com/BurntSushi/rust-csv
 
 
-csv-core 0.1.11
+csv-core 0.1.12
 -----
 
 Authors:
@@ -647,7 +636,7 @@ Repository:
     https://github.com/gyscos/cursive
 
 
-darling 0.20.10
+darling 0.20.11
 -----
 
 Authors:
@@ -658,7 +647,7 @@ Repository:
     https://github.com/TedDriggs/darling
 
 
-darling_core 0.20.10
+darling_core 0.20.11
 -----
 
 Authors:
@@ -669,7 +658,7 @@ Repository:
     https://github.com/TedDriggs/darling
 
 
-darling_macro 0.20.10
+darling_macro 0.20.11
 -----
 
 Authors:
@@ -680,7 +669,7 @@ Repository:
     https://github.com/TedDriggs/darling
 
 
-data-encoding 2.6.0
+data-encoding 2.9.0
 -----
 
 Authors:
@@ -691,7 +680,7 @@ Repository:
     https://github.com/ia0/data-encoding
 
 
-deranged 0.3.11
+deranged 0.4.0
 -----
 
 Authors:
@@ -724,7 +713,7 @@ Repository:
     https://github.com/yaahc/displaydoc
 
 
-encode_unicode 0.3.6
+encode_unicode 1.0.0
 -----
 
 Authors:
@@ -757,7 +746,7 @@ Repository:
     https://codeberg.org/xfix/enum-map
 
 
-enumset 1.1.5
+enumset 1.1.6
 -----
 
 Authors:
@@ -768,7 +757,7 @@ Repository:
     https://github.com/Lymia/enumset
 
 
-enumset_derive 0.10.0
+enumset_derive 0.11.0
 -----
 
 Authors:
@@ -779,7 +768,7 @@ Repository:
     https://github.com/Lymia/enumset
 
 
-equivalent 1.0.1
+equivalent 1.0.2
 -----
 
 Authors:
@@ -787,21 +776,22 @@ Authors:
 License:
     Apache-2.0 OR MIT
 Repository:
-    https://github.com/cuviper/equivalent
+    https://github.com/indexmap-rs/equivalent
 
 
-errno 0.3.9
+errno 0.3.12
 -----
 
 Authors:
     Chris Wong <lambda.fairy@gmail.com>
+    Dan Gohman <dev@sunfishcode.online>
 License:
     Apache-2.0 OR MIT
 Repository:
     https://github.com/lambda-fairy/rust-errno
 
 
-fastrand 2.1.1
+fastrand 2.3.0
 -----
 
 Authors:
@@ -812,7 +802,7 @@ Repository:
     https://github.com/smol-rs/fastrand
 
 
-flate2 1.0.34
+flate2 1.1.1
 -----
 
 Authors:
@@ -881,7 +871,7 @@ Repository:
     https://github.com/XAMPPRocky/fluent-templates
 
 
-flume 0.11.0
+flume 0.11.1
 -----
 
 Authors:
@@ -926,7 +916,7 @@ Repository:
     https://github.com/fizyk20/generic-array.git
 
 
-getrandom 0.2.15
+getrandom 0.3.3
 -----
 
 Authors:
@@ -937,7 +927,7 @@ Repository:
     https://github.com/rust-random/getrandom
 
 
-globset 0.4.15
+globset 0.4.16
 -----
 
 Authors:
@@ -948,7 +938,7 @@ Repository:
     https://github.com/BurntSushi/ripgrep/tree/master/crates/globset
 
 
-half 2.4.1
+half 2.6.0
 -----
 
 Authors:
@@ -956,7 +946,7 @@ Authors:
 License:
     Apache-2.0 OR MIT
 Repository:
-    https://github.com/starkat99/half-rs
+    https://github.com/VoidStarKat/half-rs
 
 
 hashbrown 0.12.3
@@ -970,7 +960,7 @@ Repository:
     https://github.com/rust-lang/hashbrown
 
 
-hashbrown 0.15.0
+hashbrown 0.15.3
 -----
 
 Authors:
@@ -992,17 +982,6 @@ Repository:
     https://github.com/withoutboats/heck
 
 
-hermit-abi 0.3.9
------
-
-Authors:
-    Stefan Lankes
-License:
-    Apache-2.0 OR MIT
-Repository:
-    https://github.com/hermit-os/hermit-rs
-
-
 hex 0.4.3
 -----
 
@@ -1014,7 +993,7 @@ Repository:
     https://github.com/KokaKiwi/rust-hex
 
 
-iana-time-zone 0.1.61
+iana-time-zone 0.1.63
 -----
 
 Authors:
@@ -1038,6 +1017,83 @@ Repository:
     https://github.com/strawlab/iana-time-zone
 
 
+icu_collections 2.0.0
+-----
+
+Authors:
+    The ICU4X Project Developers
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
+icu_locale_core 2.0.0
+-----
+
+Authors:
+    The ICU4X Project Developers
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
+icu_normalizer 2.0.0
+-----
+
+Authors:
+    The ICU4X Project Developers
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
+icu_normalizer_data 2.0.0
+-----
+
+Authors:
+    The ICU4X Project Developers
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
+icu_properties 2.0.1
+-----
+
+Authors:
+    The ICU4X Project Developers
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
+icu_properties_data 2.0.1
+-----
+
+Authors:
+    The ICU4X Project Developers
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
+icu_provider 2.0.0
+-----
+
+Authors:
+    The ICU4X Project Developers
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
 ident_case 1.0.1
 -----
 
@@ -1049,7 +1105,7 @@ Repository:
     https://github.com/TedDriggs/ident_case
 
 
-idna 0.5.0
+idna 1.0.3
 -----
 
 Authors:
@@ -1058,6 +1114,17 @@ License:
     Apache-2.0 OR MIT
 Repository:
     https://github.com/servo/rust-url/
+
+
+idna_adapter 1.2.1
+-----
+
+Authors:
+    The rust-url developers
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/hsivonen/idna_adapter
 
 
 ignore 0.4.23
@@ -1082,7 +1149,7 @@ Repository:
     https://github.com/bluss/indexmap
 
 
-indexmap 2.6.0
+indexmap 2.9.0
 -----
 
 Authors:
@@ -1093,7 +1160,7 @@ Repository:
     https://github.com/indexmap-rs/indexmap
 
 
-indicatif 0.17.8
+indicatif 0.17.11
 -----
 
 Authors:
@@ -1104,23 +1171,14 @@ Repository:
     https://github.com/console-rs/indicatif
 
 
-instant 0.1.13
+intl-memoizer 0.5.3
 -----
 
 Authors:
-    sebcrozet <developer@crozet.re>
-License:
-    BSD-3-Clause
-Repository:
-    https://github.com/sebcrozet/instant
-
-
-intl-memoizer 0.5.2
------
-
-Authors:
+    Caleb Maclennan <caleb@alerque.com>
+    Bruce Mitchener <bruce.mitchener@gmail.com
     Zibi Braniecki <zibi@unicode.org>
-    Manish Goregaokar <manishsmail@gmail.com>
+    Staś Małolepszy <stas@mozilla.com>
 License:
     Apache-2.0 OR MIT
 Repository:
@@ -1150,7 +1208,7 @@ Repository:
     https://github.com/polyfill-rs/is_terminal_polyfill
 
 
-itoa 1.0.11
+itoa 1.0.15
 -----
 
 Authors:
@@ -1161,7 +1219,7 @@ Repository:
     https://github.com/dtolnay/itoa
 
 
-js-sys 0.3.72
+js-sys 0.3.77
 -----
 
 Authors:
@@ -1194,7 +1252,7 @@ Repository:
     https://github.com/rust-lang-nursery/lazy-static.rs
 
 
-libc 0.2.159
+libc 0.2.172
 -----
 
 Authors:
@@ -1205,7 +1263,18 @@ Repository:
     https://github.com/rust-lang/libc
 
 
-linux-raw-sys 0.4.14
+libz-rs-sys 0.5.0
+-----
+
+Authors:
+    <unknown>
+License:
+    Zlib
+Repository:
+    https://github.com/trifectatechfoundation/zlib-rs
+
+
+linux-raw-sys 0.4.15
 -----
 
 Authors:
@@ -1214,6 +1283,28 @@ License:
     Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
 Repository:
     https://github.com/sunfishcode/linux-raw-sys
+
+
+linux-raw-sys 0.9.4
+-----
+
+Authors:
+    Dan Gohman <dev@sunfishcode.online>
+License:
+    Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
+Repository:
+    https://github.com/sunfishcode/linux-raw-sys
+
+
+litemap 0.8.0
+-----
+
+Authors:
+    The ICU4X Project Developers
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
 
 
 lock_api 0.4.12
@@ -1227,7 +1318,7 @@ Repository:
     https://github.com/Amanieu/parking_lot
 
 
-log 0.4.22
+log 0.4.27
 -----
 
 Authors:
@@ -1272,30 +1363,20 @@ Repository:
     https://github.com/BurntSushi/memchr
 
 
-minimal-lexical 0.2.1
------
-
-Authors:
-    Alex Huszagh <ahuszagh@gmail.com>
-License:
-    Apache-2.0 OR MIT
-Repository:
-    https://github.com/Alexhuszagh/minimal-lexical
-
-
-miniz_oxide 0.8.0
+miniz_oxide 0.8.8
 -----
 
 Authors:
     Frommi <daniil.liferenko@gmail.com>
     oyvindln <oyvindln@users.noreply.github.com>
+    Rich Geldreich richgel99@gmail.com
 License:
     Apache-2.0 OR MIT OR Zlib
 Repository:
     https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide
 
 
-mio 1.0.2
+mio 1.0.3
 -----
 
 Authors:
@@ -1308,7 +1389,7 @@ Repository:
     https://github.com/tokio-rs/mio
 
 
-nom 7.1.3
+nom 8.0.0
 -----
 
 Authors:
@@ -1316,7 +1397,7 @@ Authors:
 License:
     MIT
 Repository:
-    https://github.com/Geal/nom
+    https://github.com/rust-bakery/nom
 
 
 nu-ansi-term 0.46.0
@@ -1432,7 +1513,7 @@ Repository:
     https://github.com/ogham/rust-number-prefix
 
 
-once_cell 1.20.2
+once_cell 1.21.3
 -----
 
 Authors:
@@ -1441,6 +1522,17 @@ License:
     Apache-2.0 OR MIT
 Repository:
     https://github.com/matklad/once_cell
+
+
+once_cell_polyfill 1.70.1
+-----
+
+Authors:
+    <unknown>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/polyfill-rs/once_cell_polyfill
 
 
 overload 0.1.1
@@ -1487,7 +1579,7 @@ Repository:
     https://github.com/servo/rust-url/
 
 
-pin-project-lite 0.2.14
+pin-project-lite 0.2.16
 -----
 
 Authors:
@@ -1498,7 +1590,7 @@ Repository:
     https://github.com/taiki-e/pin-project-lite
 
 
-portable-atomic 1.9.0
+portable-atomic 1.11.0
 -----
 
 Authors:
@@ -1507,6 +1599,17 @@ License:
     Apache-2.0 OR MIT
 Repository:
     https://github.com/taiki-e/portable-atomic
+
+
+potential_utf 0.1.2
+-----
+
+Authors:
+    The ICU4X Project Developers
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
 
 
 powerfmt 0.2.0
@@ -1531,7 +1634,7 @@ Repository:
     https://github.com/dtolnay/proc-macro-hack
 
 
-proc-macro2 1.0.87
+proc-macro2 1.0.95
 -----
 
 Authors:
@@ -1543,7 +1646,7 @@ Repository:
     https://github.com/dtolnay/proc-macro2
 
 
-quote 1.0.37
+quote 1.0.40
 -----
 
 Authors:
@@ -1554,7 +1657,18 @@ Repository:
     https://github.com/dtolnay/quote
 
 
-redb 2.1.4
+r-efi 5.2.0
+-----
+
+Authors:
+    <unknown>
+License:
+    Apache-2.0 OR LGPL-2.1-or-later OR MIT
+Repository:
+    https://github.com/r-efi/r-efi
+
+
+redb 2.6.0
 -----
 
 Authors:
@@ -1565,7 +1679,7 @@ Repository:
     https://github.com/cberner/redb
 
 
-redox_syscall 0.5.7
+redox_syscall 0.5.12
 -----
 
 Authors:
@@ -1576,7 +1690,7 @@ Repository:
     https://gitlab.redox-os.org/redox-os/syscall
 
 
-regex 1.11.0
+regex 1.11.1
 -----
 
 Authors:
@@ -1599,7 +1713,7 @@ Repository:
     https://github.com/BurntSushi/regex-automata
 
 
-regex-automata 0.4.8
+regex-automata 0.4.9
 -----
 
 Authors:
@@ -1659,7 +1773,18 @@ Repository:
     https://github.com/rust-lang-nursery/rustc-hash
 
 
-rustix 0.38.37
+rustc-hash 2.1.1
+-----
+
+Authors:
+    The Rust Project Developers
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/rust-lang/rustc-hash
+
+
+rustix 0.38.44
 -----
 
 Authors:
@@ -1671,7 +1796,19 @@ Repository:
     https://github.com/bytecodealliance/rustix
 
 
-rustversion 1.0.18
+rustix 1.0.7
+-----
+
+Authors:
+    Dan Gohman <dev@sunfishcode.online>
+    Jakub Konka <kubkon@jakubkonka.com>
+License:
+    Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
+Repository:
+    https://github.com/bytecodealliance/rustix
+
+
+rustversion 1.0.21
 -----
 
 Authors:
@@ -1682,7 +1819,7 @@ Repository:
     https://github.com/dtolnay/rustversion
 
 
-ryu 1.0.18
+ryu 1.0.20
 -----
 
 Authors:
@@ -1737,7 +1874,7 @@ Repository:
     https://github.com/Voultapher/self_cell
 
 
-self_cell 1.0.4
+self_cell 1.2.0
 -----
 
 Authors:
@@ -1748,7 +1885,7 @@ Repository:
     https://github.com/Voultapher/self_cell
 
 
-serde 1.0.210
+serde 1.0.219
 -----
 
 Authors:
@@ -1760,7 +1897,7 @@ Repository:
     https://github.com/serde-rs/serde
 
 
-serde_derive 1.0.210
+serde_derive 1.0.219
 -----
 
 Authors:
@@ -1772,7 +1909,7 @@ Repository:
     https://github.com/serde-rs/serde
 
 
-serde_json 1.0.128
+serde_json 1.0.140
 -----
 
 Authors:
@@ -1784,7 +1921,7 @@ Repository:
     https://github.com/serde-rs/json
 
 
-serde_with 3.11.0
+serde_with 3.12.0
 -----
 
 Authors:
@@ -1796,7 +1933,7 @@ Repository:
     https://github.com/jonasbb/serde_with/
 
 
-serde_with_macros 3.11.0
+serde_with_macros 3.12.0
 -----
 
 Authors:
@@ -1829,7 +1966,7 @@ Repository:
     https://github.com/mitsuhiko/sha1-smol
 
 
-sha2 0.10.8
+sha2 0.10.9
 -----
 
 Authors:
@@ -1862,7 +1999,7 @@ Repository:
     https://github.com/hawkw/sharded-slab
 
 
-signal-hook 0.3.17
+signal-hook 0.3.18
 -----
 
 Authors:
@@ -1886,7 +2023,7 @@ Repository:
     https://github.com/vorner/signal-hook
 
 
-signal-hook-registry 1.4.2
+signal-hook-registry 1.4.5
 -----
 
 Authors:
@@ -1898,7 +2035,7 @@ Repository:
     https://github.com/vorner/signal-hook
 
 
-smallvec 1.13.2
+smallvec 1.15.0
 -----
 
 Authors:
@@ -1920,6 +2057,17 @@ License:
     MIT
 Repository:
     https://github.com/mvdnes/spin-rs.git
+
+
+stable_deref_trait 1.2.0
+-----
+
+Authors:
+    Robert Grosse <n210241048576@gmail.com>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/storyyeller/stable_deref_trait
 
 
 static_assertions 1.1.0
@@ -1957,7 +2105,7 @@ Repository:
     https://github.com/dalek-cryptography/subtle
 
 
-syn 2.0.79
+syn 2.0.101
 -----
 
 Authors:
@@ -1968,7 +2116,18 @@ Repository:
     https://github.com/dtolnay/syn
 
 
-sys-locale 0.3.1
+synstructure 0.13.2
+-----
+
+Authors:
+    Nika Layzell <nika@thelayzells.com>
+License:
+    MIT
+Repository:
+    https://github.com/mystor/synstructure
+
+
+sys-locale 0.3.2
 -----
 
 Authors:
@@ -1979,18 +2138,19 @@ Repository:
     https://github.com/1Password/sys-locale
 
 
-takecrate 1.0.0
+takecrate 1.1.0
 -----
 
 Authors:
-    <unknown>
+    Christopher Foo
+    Takecrate contributors
 License:
     MPL-2.0
 Repository:
     https://github.com/chfoo/takecrate
 
 
-tempfile 3.13.0
+tempfile 3.20.0
 -----
 
 Authors:
@@ -2004,7 +2164,7 @@ Repository:
     https://github.com/Stebalien/tempfile
 
 
-thiserror 1.0.64
+thiserror 1.0.69
 -----
 
 Authors:
@@ -2015,7 +2175,29 @@ Repository:
     https://github.com/dtolnay/thiserror
 
 
-thiserror-impl 1.0.64
+thiserror 2.0.12
+-----
+
+Authors:
+    David Tolnay <dtolnay@gmail.com>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/dtolnay/thiserror
+
+
+thiserror-impl 1.0.69
+-----
+
+Authors:
+    David Tolnay <dtolnay@gmail.com>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/dtolnay/thiserror
+
+
+thiserror-impl 2.0.12
 -----
 
 Authors:
@@ -2037,7 +2219,7 @@ Repository:
     https://github.com/Amanieu/thread_local-rs
 
 
-time 0.3.36
+time 0.3.41
 -----
 
 Authors:
@@ -2049,7 +2231,7 @@ Repository:
     https://github.com/time-rs/time
 
 
-time-core 0.1.2
+time-core 0.1.4
 -----
 
 Authors:
@@ -2061,7 +2243,7 @@ Repository:
     https://github.com/time-rs/time
 
 
-time-macros 0.2.18
+time-macros 0.2.22
 -----
 
 Authors:
@@ -2073,7 +2255,7 @@ Repository:
     https://github.com/time-rs/time
 
 
-tinystr 0.7.6
+tinystr 0.8.1
 -----
 
 Authors:
@@ -2084,29 +2266,7 @@ Repository:
     https://github.com/unicode-org/icu4x
 
 
-tinyvec 1.8.0
------
-
-Authors:
-    Lokathor <zefria@gmail.com>
-License:
-    Apache-2.0 OR MIT OR Zlib
-Repository:
-    https://github.com/Lokathor/tinyvec
-
-
-tinyvec_macros 0.1.1
------
-
-Authors:
-    Soveu <marx.tomasz@gmail.com>
-License:
-    Apache-2.0 OR MIT OR Zlib
-Repository:
-    https://github.com/Soveu/tinyvec_macros
-
-
-tracing 0.1.40
+tracing 0.1.41
 -----
 
 Authors:
@@ -2118,7 +2278,7 @@ Repository:
     https://github.com/tokio-rs/tracing
 
 
-tracing-attributes 0.1.27
+tracing-attributes 0.1.28
 -----
 
 Authors:
@@ -2131,7 +2291,7 @@ Repository:
     https://github.com/tokio-rs/tracing
 
 
-tracing-core 0.1.32
+tracing-core 0.1.33
 -----
 
 Authors:
@@ -2153,7 +2313,7 @@ Repository:
     https://github.com/tokio-rs/tracing
 
 
-tracing-serde 0.1.3
+tracing-serde 0.2.0
 -----
 
 Authors:
@@ -2164,7 +2324,7 @@ Repository:
     https://github.com/tokio-rs/tracing
 
 
-tracing-subscriber 0.3.18
+tracing-subscriber 0.3.19
 -----
 
 Authors:
@@ -2177,7 +2337,7 @@ Repository:
     https://github.com/tokio-rs/tracing
 
 
-type-map 0.5.0
+type-map 0.5.1
 -----
 
 Authors:
@@ -2188,7 +2348,7 @@ Repository:
     https://github.com/kardeiz/type-map
 
 
-typenum 1.17.0
+typenum 1.18.0
 -----
 
 Authors:
@@ -2200,7 +2360,7 @@ Repository:
     https://github.com/paholg/typenum
 
 
-unic-langid 0.9.5
+unic-langid 0.9.6
 -----
 
 Authors:
@@ -2211,7 +2371,7 @@ Repository:
     https://github.com/zbraniecki/unic-locale
 
 
-unic-langid-impl 0.9.5
+unic-langid-impl 0.9.6
 -----
 
 Authors:
@@ -2222,7 +2382,7 @@ Repository:
     https://github.com/zbraniecki/unic-locale
 
 
-unic-langid-macros 0.9.5
+unic-langid-macros 0.9.6
 -----
 
 Authors:
@@ -2233,7 +2393,7 @@ Repository:
     https://github.com/zbraniecki/unic-locale
 
 
-unic-langid-macros-impl 0.9.5
+unic-langid-macros-impl 0.9.6
 -----
 
 Authors:
@@ -2244,38 +2404,15 @@ Repository:
     https://github.com/zbraniecki/unic-locale
 
 
-unicode-bidi 0.3.17
------
-
-Authors:
-    The Servo Project Developers
-License:
-    Apache-2.0 OR MIT
-Repository:
-    https://github.com/servo/unicode-bidi
-
-
-unicode-ident 1.0.13
+unicode-ident 1.0.18
 -----
 
 Authors:
     David Tolnay <dtolnay@gmail.com>
 License:
-    (MIT OR Apache-2.0) AND Unicode-DFS-2016
+    (MIT OR Apache-2.0) AND Unicode-3.0
 Repository:
     https://github.com/dtolnay/unicode-ident
-
-
-unicode-normalization 0.1.24
------
-
-Authors:
-    kwantam <kwantam@gmail.com>
-    Manish Goregaokar <manishsmail@gmail.com>
-License:
-    Apache-2.0 OR MIT
-Repository:
-    https://github.com/unicode-rs/unicode-normalization
 
 
 unicode-segmentation 1.12.0
@@ -2302,7 +2439,19 @@ Repository:
     https://github.com/unicode-rs/unicode-width
 
 
-url 2.5.2
+unicode-width 0.2.0
+-----
+
+Authors:
+    kwantam <kwantam@gmail.com>
+    Manish Goregaokar <manishsmail@gmail.com>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/unicode-rs/unicode-width
+
+
+url 2.5.4
 -----
 
 Authors:
@@ -2311,6 +2460,17 @@ License:
     Apache-2.0 OR MIT
 Repository:
     https://github.com/servo/rust-url
+
+
+utf8_iter 1.0.4
+-----
+
+Authors:
+    Henri Sivonen <hsivonen@hsivonen.fi>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/hsivonen/utf8_iter
 
 
 utf8parse 0.2.2
@@ -2325,7 +2485,7 @@ Repository:
     https://github.com/alacritty/vte
 
 
-uuid 1.10.0
+uuid 1.17.0
 -----
 
 Authors:
@@ -2338,7 +2498,7 @@ Repository:
     https://github.com/uuid-rs/uuid
 
 
-valuable 0.1.0
+valuable 0.1.1
 -----
 
 Authors:
@@ -2360,11 +2520,12 @@ Repository:
     https://github.com/BurntSushi/walkdir
 
 
-warcat 0.2.0
+warcat 0.3.3
 -----
 
 Authors:
-    <unknown>
+    Christopher Foo
+    Warcat-rs contributors
 License:
     MPL-2.0
 Repository:
@@ -2382,7 +2543,18 @@ Repository:
     https://github.com/bytecodealliance/wasi
 
 
-wasm-bindgen 0.2.95
+wasi 0.14.2+wasi-0.2.4
+-----
+
+Authors:
+    The Cranelift Project Developers
+License:
+    Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
+Repository:
+    https://github.com/bytecodealliance/wasi-rs
+
+
+wasm-bindgen 0.2.100
 -----
 
 Authors:
@@ -2393,7 +2565,7 @@ Repository:
     https://github.com/rustwasm/wasm-bindgen
 
 
-wasm-bindgen-backend 0.2.95
+wasm-bindgen-backend 0.2.100
 -----
 
 Authors:
@@ -2404,7 +2576,7 @@ Repository:
     https://github.com/rustwasm/wasm-bindgen/tree/master/crates/backend
 
 
-wasm-bindgen-macro 0.2.95
+wasm-bindgen-macro 0.2.100
 -----
 
 Authors:
@@ -2415,7 +2587,7 @@ Repository:
     https://github.com/rustwasm/wasm-bindgen/tree/master/crates/macro
 
 
-wasm-bindgen-macro-support 0.2.95
+wasm-bindgen-macro-support 0.2.100
 -----
 
 Authors:
@@ -2426,7 +2598,7 @@ Repository:
     https://github.com/rustwasm/wasm-bindgen/tree/master/crates/macro-support
 
 
-wasm-bindgen-shared 0.2.95
+wasm-bindgen-shared 0.2.100
 -----
 
 Authors:
@@ -2435,6 +2607,17 @@ License:
     Apache-2.0 OR MIT
 Repository:
     https://github.com/rustwasm/wasm-bindgen/tree/master/crates/shared
+
+
+web-time 1.1.0
+-----
+
+Authors:
+    <unknown>
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/daxpedda/web-time
 
 
 winapi 0.3.9
@@ -2481,7 +2664,40 @@ Repository:
     https://github.com/retep998/winapi-rs
 
 
-windows-core 0.52.0
+windows-core 0.61.2
+-----
+
+Authors:
+    Microsoft
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/microsoft/windows-rs
+
+
+windows-implement 0.60.0
+-----
+
+Authors:
+    Microsoft
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/microsoft/windows-rs
+
+
+windows-interface 0.59.1
+-----
+
+Authors:
+    Microsoft
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/microsoft/windows-rs
+
+
+windows-link 0.1.1
 -----
 
 Authors:
@@ -2514,7 +2730,29 @@ Repository:
     https://github.com/microsoft/windows-rs
 
 
+windows-result 0.3.4
+-----
+
+Authors:
+    Microsoft
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/microsoft/windows-rs
+
+
 windows-strings 0.2.0
+-----
+
+Authors:
+    Microsoft
+License:
+    Apache-2.0 OR MIT
+Repository:
+    https://github.com/microsoft/windows-rs
+
+
+windows-strings 0.4.2
 -----
 
 Authors:
@@ -2646,6 +2884,28 @@ Repository:
     https://github.com/microsoft/windows-rs
 
 
+wit-bindgen-rt 0.39.0
+-----
+
+Authors:
+    <unknown>
+License:
+    Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT
+Repository:
+    https://github.com/bytecodealliance/wit-bindgen
+
+
+writeable 0.6.1
+-----
+
+Authors:
+    The ICU4X Project Developers
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
 xi-unicode 0.3.0
 -----
 
@@ -2657,7 +2917,7 @@ Repository:
     https://github.com/google/xi-editor
 
 
-xxhash-rust 0.8.12
+xxhash-rust 0.8.15
 -----
 
 Authors:
@@ -2668,29 +2928,119 @@ Repository:
     https://github.com/DoumanAsh/xxhash-rust
 
 
-zerocopy 0.7.35
+yoke 0.8.0
+-----
+
+Authors:
+    Manish Goregaokar <manishsmail@gmail.com>
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
+yoke-derive 0.8.0
+-----
+
+Authors:
+    Manish Goregaokar <manishsmail@gmail.com>
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
+zerocopy 0.8.25
 -----
 
 Authors:
     Joshua Liebow-Feeser <joshlf@google.com>
+    Jack Wrenn <jswrenn@amazon.com>
 License:
     Apache-2.0 OR BSD-2-Clause OR MIT
 Repository:
     https://github.com/google/zerocopy
 
 
-zerocopy-derive 0.7.35
+zerocopy-derive 0.8.25
 -----
 
 Authors:
     Joshua Liebow-Feeser <joshlf@google.com>
+    Jack Wrenn <jswrenn@amazon.com>
 License:
     Apache-2.0 OR BSD-2-Clause OR MIT
 Repository:
     https://github.com/google/zerocopy
 
 
-zstd 0.13.2
+zerofrom 0.1.6
+-----
+
+Authors:
+    Manish Goregaokar <manishsmail@gmail.com>
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
+zerofrom-derive 0.1.6
+-----
+
+Authors:
+    Manish Goregaokar <manishsmail@gmail.com>
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
+zerotrie 0.2.2
+-----
+
+Authors:
+    The ICU4X Project Developers
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
+zerovec 0.11.2
+-----
+
+Authors:
+    The ICU4X Project Developers
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
+zerovec-derive 0.11.1
+-----
+
+Authors:
+    Manish Goregaokar <manishsmail@gmail.com>
+License:
+    Unicode-3.0
+Repository:
+    https://github.com/unicode-org/icu4x
+
+
+zlib-rs 0.5.0
+-----
+
+Authors:
+    <unknown>
+License:
+    Zlib
+Repository:
+    https://github.com/trifectatechfoundation/zlib-rs
+
+
+zstd 0.13.3
 -----
 
 Authors:
@@ -2701,7 +3051,7 @@ Repository:
     https://github.com/gyscos/zstd-rs
 
 
-zstd-safe 7.2.1
+zstd-safe 7.2.4
 -----
 
 Authors:
@@ -2712,7 +3062,7 @@ Repository:
     https://github.com/gyscos/zstd-rs
 
 
-zstd-sys 2.0.13+zstd.1.5.6
+zstd-sys 2.0.15+zstd.1.5.7
 -----
 
 Authors:
