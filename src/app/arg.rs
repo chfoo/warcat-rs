@@ -160,8 +160,8 @@ pub struct GetExportSubcommand {
     pub position: u64,
 
     /// The ID of the record to extract.
-    #[clap(long, required = true)]
-    pub id: String,
+    #[clap(long)]
+    pub id: Option<String>,
 
     /// Path for the output messages.
     #[clap(long, default_value = "-")]
@@ -196,8 +196,8 @@ pub struct GetExtractSubcommand {
     pub position: u64,
 
     /// The ID of the record to extract.
-    #[clap(long, required = true)]
-    pub id: String,
+    #[clap(long)]
+    pub id: Option<String>,
 
     /// Path for the output file.
     #[clap(long, default_value = "-")]
