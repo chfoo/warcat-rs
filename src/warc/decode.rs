@@ -571,14 +571,19 @@ impl PushDecoder {
         // Okay to discard slice1 because we called make_contiguous() earlier.
         let (buf, _slice1) = self.decompressor.get_ref().as_slices();
 
-        if buf.starts_with(b"WARC/") {
-            Ok(())
-        } else if buf.starts_with(b"\x1f\x8b") || buf.starts_with(b"\x28\xb5\x2f\xfd") {
-            Err(ProtocolError::new(ProtocolErrorKind::UnexpectedCompression))
-        } else if buf.len() >= 4 {
-            Err(ProtocolError::new(ProtocolErrorKind::UnknownHeader))
-        } else {
-            Ok(())
+        match detect_header(buf) {
+            HeaderDetectResult::Warc => Ok(()),
+            HeaderDetectResult::Compression => {
+                Err(ProtocolError::new(ProtocolErrorKind::UnexpectedCompression)
+                    .with_position(self.bytes_written_decoder)
+                    .with_snippet(buf[0..buf.len().min(16)].escape_ascii().to_string()))
+            }
+            HeaderDetectResult::NotWarc => {
+                Err(ProtocolError::new(ProtocolErrorKind::UnknownHeader)
+                    .with_position(self.bytes_written_decoder)
+                    .with_snippet(buf[0..buf.len().min(16)].escape_ascii().to_string()))
+            }
+            HeaderDetectResult::NotSure => Ok(()),
         }
     }
 
@@ -715,7 +720,10 @@ impl PushDecoder {
     }
 
     fn consume_deferred_input_buf(&mut self) -> Result<(), GeneralError> {
-        tracing::trace!(len = self.deferred_input_buf.len(), "consume deferred input buf");
+        tracing::trace!(
+            len = self.deferred_input_buf.len(),
+            "consume deferred input buf"
+        );
 
         while !self.deferred_input_buf.is_empty() {
             let (slice0, _slice1) = self.deferred_input_buf.as_slices();
@@ -772,11 +780,48 @@ impl Write for PushDecoder {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum HeaderDetectResult {
+    Warc,
+    NotWarc,
+    Compression,
+    NotSure,
+}
+
+fn detect_header(buf: &[u8]) -> HeaderDetectResult {
+    if buf.starts_with(b"WARC/") {
+        HeaderDetectResult::Warc
+    } else if buf.starts_with(b"\x1f\x8b") || buf.starts_with(b"\x28\xb5\x2f\xfd") {
+        HeaderDetectResult::Compression
+    } else if buf.len() >= 5 {
+        HeaderDetectResult::NotWarc
+    } else {
+        HeaderDetectResult::NotSure
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
 
     use super::*;
+
+    #[test]
+    fn test_detect_header() {
+        assert_eq!(detect_header(b"WA"), HeaderDetectResult::NotSure);
+        assert_eq!(detect_header(b"WARC"), HeaderDetectResult::NotSure);
+        assert_eq!(detect_header(b"WARC/"), HeaderDetectResult::Warc);
+        assert_eq!(detect_header(b"WARC/1"), HeaderDetectResult::Warc);
+        assert_eq!(detect_header(b"AAAAA"), HeaderDetectResult::NotWarc);
+        assert_eq!(detect_header(b"AAAAAA"), HeaderDetectResult::NotWarc);
+        assert_eq!(detect_header(b"\x1f\x8b"), HeaderDetectResult::Compression);
+        assert_eq!(detect_header(b"\x1f\x8b "), HeaderDetectResult::Compression);
+        assert_eq!(
+            detect_header(b"\x28\xb5\x2f\xfd"),
+            HeaderDetectResult::Compression
+        );
+        assert_eq!(detect_header(b"\x28\xb5"), HeaderDetectResult::NotSure);
+    }
 
     #[tracing_test::traced_test]
     #[test]
