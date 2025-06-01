@@ -337,6 +337,15 @@ impl<W: Write> PushDecompressor<W> {
         self.decoder.into_inner()
     }
 
+    /// Notify that there is no more input to be decoded.
+    pub fn write_eof(&mut self) -> std::io::Result<()> {
+        let decoder = std::mem::replace(&mut self.decoder, PushDecoder::None);
+        let dest = decoder.into_inner()?;
+        self.decoder = PushDecoder::new(dest, Format::Identity, &Dictionary::None)?;
+
+        Ok(())
+    }
+
     /// Prepares the codec for reading a new stream.
     ///
     /// This function has effect for only codecs that support concatenation.

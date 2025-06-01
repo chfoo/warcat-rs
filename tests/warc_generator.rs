@@ -45,10 +45,19 @@ fn generate(mut encoder: Encoder<EncStateHeader, Vec<u8>>) -> (Vec<u8>, Vec<u64>
         offsets.push(encoder.get_ref().len() as u64);
         let mut rng = Xoshiro256PlusPlus::seed_from_u64(round);
 
-        let length: u64 = rng.random_range(100 + round * 123..200 + round * 123);
+        let length: u64 = rng.random_range(100 + round * 1234..200 + round * 1234);
 
         let mut data: Vec<u8> = vec![0; length as usize];
-        rng.fill_bytes(&mut data);
+
+        if rng.random_bool(0.5) {
+            // Easy to compress
+            for value in data.iter_mut().step_by(10) {
+                *value = 0xff;
+            }
+        } else {
+            // Difficult to compress
+            rng.fill_bytes(&mut data);
+        }
 
         let mut hasher = Hasher::new(AlgorithmName::Sha1);
         hasher.update(&data);

@@ -69,7 +69,7 @@ impl<S, R: Read> Decoder<S, R> {
         self.push_decoder.write_all(&self.buf)?;
 
         if read_length == 0 {
-            self.push_decoder.write_eof();
+            self.push_decoder.write_eof()?;
         }
 
         tracing::trace!(read_length, "read into push decoder");
@@ -136,7 +136,9 @@ impl<R: Read> Decoder<DecStateHeader, R> {
 
     /// Returns whether there is another WARC record to be read.
     pub fn has_next_record(&mut self) -> std::io::Result<bool> {
-        if self.push_decoder.is_ready() {
+        if self.push_decoder.is_finished() {
+            return Ok(false);
+        } else if self.push_decoder.is_ready() {
             self.read_into_push_decoder()?;
         }
 
@@ -151,10 +153,12 @@ impl<R: Read> Decoder<DecStateHeader, R> {
         loop {
             match self.push_decoder.get_event()? {
                 PushDecoderEvent::Ready | PushDecoderEvent::WantData => {
-                    self.read_nonzero_into_push_decoder()?;
+                    self.read_into_push_decoder()?;
                     continue;
                 }
-                PushDecoderEvent::WantDataOrEof => unreachable!(),
+                PushDecoderEvent::Finished => {
+                    return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput).into());
+                }
                 PushDecoderEvent::Continue => continue,
                 PushDecoderEvent::Header { header } => {
                     return Ok((
@@ -193,8 +197,8 @@ impl<R: Read + Seek> Decoder<DecStateHeader, R> {
 
                 match self.push_decoder.get_event()? {
                     PushDecoderEvent::Ready
+                    | PushDecoderEvent::Finished
                     | PushDecoderEvent::WantData
-                    | PushDecoderEvent::WantDataOrEof
                     | PushDecoderEvent::Continue => {}
                     PushDecoderEvent::Header { .. }
                     | PushDecoderEvent::BlockData { .. }
@@ -229,11 +233,8 @@ impl<R: Read> Decoder<DecStateBlock, R> {
                 .map_err(std::io::Error::other)?
             {
                 PushDecoderEvent::Ready => unreachable!(),
+                PushDecoderEvent::Finished => unreachable!(),
                 PushDecoderEvent::WantData => {
-                    self.read_nonzero_into_push_decoder()?;
-                    continue;
-                }
-                PushDecoderEvent::WantDataOrEof => {
                     self.read_into_push_decoder()?;
                     continue;
                 }
@@ -285,12 +286,9 @@ impl<R: Read> Decoder<DecStateBlock, R> {
         while !self.state.is_end {
             match self.push_decoder.get_event()? {
                 PushDecoderEvent::Ready => unreachable!(),
+                PushDecoderEvent::Finished => unreachable!(),
                 PushDecoderEvent::WantData => {
                     self.read_nonzero_into_push_decoder()?;
-                    continue;
-                }
-                PushDecoderEvent::WantDataOrEof => {
-                    self.read_into_push_decoder()?;
                     continue;
                 }
                 PushDecoderEvent::Continue => continue,
@@ -321,10 +319,10 @@ impl<R: Read, S> LogicalPosition for Decoder<S, R> {
 pub enum PushDecoderEvent<'a> {
     /// No input data has been received yet.
     Ready,
-    /// More data of non-zero size is needed.
-    WantData,
+    /// End-of-file has been reached and no more data can be decoded.
+    Finished,
     /// Either more data or end-of-file (EOF) is needed.
-    WantDataOrEof,
+    WantData,
     /// Internal processing was successful and the user should call again.
     Continue,
     /// Decoding a header was successful.
@@ -338,6 +336,10 @@ pub enum PushDecoderEvent<'a> {
 impl<'a> PushDecoderEvent<'a> {
     pub fn is_ready(&self) -> bool {
         matches!(self, Self::Ready)
+    }
+
+    pub fn is_finished(&self) -> bool {
+        matches!(self, Self::Finished)
     }
 
     pub fn is_want_data(&self) -> bool {
@@ -372,10 +374,6 @@ impl<'a> PushDecoderEvent<'a> {
         }
     }
 
-    /// Returns `true` if the push decoder event is [`EndRecord`].
-    ///
-    /// [`EndRecord`]: PushDecoderEvent::EndRecord
-    #[must_use]
     pub fn is_end_record(&self) -> bool {
         matches!(self, Self::EndRecord)
     }
@@ -388,6 +386,7 @@ enum PushDecoderState {
     Block,
     RecordBoundary,
     EndOfSegment,
+    Finished,
 }
 
 /// WARC format decoder push-style.
@@ -490,6 +489,12 @@ impl PushDecoder {
         matches!(self.state, PushDecoderState::PendingHeader)
     }
 
+    /// Returns whether the next call to [`get_event()`](Self::get_event())
+    /// will return [`PushDecoderEvent::Finished`].
+    pub fn is_finished(&self) -> bool {
+        matches!(self.state, PushDecoderState::Finished)
+    }
+
     /// Returns a processed event.
     ///
     /// In order for this decoder to produce events, the caller must
@@ -506,6 +511,7 @@ impl PushDecoder {
             PushDecoderState::Block => self.process_block(),
             PushDecoderState::RecordBoundary => self.process_record_boundary(),
             PushDecoderState::EndOfSegment => self.process_end_of_segment(),
+            PushDecoderState::Finished => Ok(PushDecoderEvent::Finished),
         }
     }
 
@@ -670,7 +676,7 @@ impl PushDecoder {
             && !self.input_eof
         {
             // Finish reading any end of compression member/frame checksums.
-            Ok(PushDecoderEvent::WantDataOrEof)
+            Ok(PushDecoderEvent::WantData)
         } else {
             self.reset_for_next_record()?;
 
@@ -695,6 +701,7 @@ impl PushDecoder {
         if self.config.decompressor.format.supports_concatenation()
             && self.decompressor.get_ref().is_empty()
         {
+            tracing::trace!("decompressor start next segment");
             self.decompressor.start_next_segment()?;
         } else if self.config.decompressor.format.supports_concatenation()
             && !self.has_rat_comp_fault
@@ -706,11 +713,15 @@ impl PushDecoder {
         self.consume_deferred_input_buf()?;
 
         self.decompressor_eof = false;
-        self.input_eof = false;
 
         if self.decompressor.get_ref().is_empty() {
-            tracing::trace!("RecordBoundary -> PendingHeader");
-            self.state = PushDecoderState::PendingHeader;
+            if self.input_eof {
+                tracing::trace!("RecordBoundary -> Finished");
+                self.state = PushDecoderState::Finished;
+            } else {
+                tracing::trace!("RecordBoundary -> PendingHeader");
+                self.state = PushDecoderState::PendingHeader;
+            }
         } else {
             tracing::trace!("RecordBoundary -> Header");
             self.state = PushDecoderState::Header;
@@ -742,9 +753,13 @@ impl PushDecoder {
     }
 
     /// Notify that there is no more input to be decoded.
-    pub fn write_eof(&mut self) {
+    pub fn write_eof(&mut self) -> std::io::Result<()> {
         tracing::trace!("push decoder got write eof");
         self.input_eof = true;
+        self.decompressor.write_eof()?;
+        tracing::trace!(decoded_buf_len = self.decompressor.get_ref().len());
+
+        Ok(())
     }
 }
 
@@ -762,7 +777,12 @@ impl Write for PushDecoder {
         let write_len = self.decompressor.write(buf)?;
         self.bytes_written_decoder += write_len as u64;
 
-        tracing::trace!(buf_len = buf.len(), write_len, "push decoder write");
+        tracing::trace!(
+            buf_len = buf.len(),
+            write_len,
+            decoded_buf_len = self.decompressor.get_ref().len(),
+            "push decoder write"
+        );
 
         if write_len != 0 {
             // FIXME: handle the case where a single record is compressed as
@@ -925,7 +945,7 @@ mod tests {
             )
             .unwrap();
 
-        decoder.write_eof();
+        decoder.write_eof().unwrap();
 
         let event = decoder.get_event().unwrap();
         assert!(event.is_header());
@@ -941,7 +961,7 @@ mod tests {
         assert!(event.is_end_record());
 
         let event = decoder.get_event().unwrap();
-        assert!(event.is_ready());
+        assert!(event.is_finished());
     }
 
     #[tracing_test::traced_test]

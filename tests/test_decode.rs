@@ -60,15 +60,14 @@ fn check_push_decoder(input: Vec<u8>, config: DecoderConfig, mut offsets: Vec<u6
 
     loop {
         match decoder.get_event().unwrap() {
-            PushDecoderEvent::Ready
-            | PushDecoderEvent::WantData
-            | PushDecoderEvent::WantDataOrEof => {
+            PushDecoderEvent::Ready | PushDecoderEvent::WantData => {
                 let mut buf = vec![0; 4096];
                 let len = input.read(&mut buf).unwrap();
                 buf.truncate(len);
                 decoder.write_all(&buf).unwrap();
 
                 if len == 0 {
+                    decoder.write_eof().unwrap();
                     break;
                 }
             }
@@ -84,6 +83,9 @@ fn check_push_decoder(input: Vec<u8>, config: DecoderConfig, mut offsets: Vec<u6
             }
             PushDecoderEvent::EndRecord => {
                 verifier.end_record();
+            }
+            PushDecoderEvent::Finished => {
+                break;
             }
         }
     }
