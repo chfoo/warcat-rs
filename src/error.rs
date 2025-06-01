@@ -188,23 +188,7 @@ impl ParseError {
 
 impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "parse error: {}", self.kind)?;
-
-        if let Some(file) = self.file() {
-            write!(f, " file '{:?}'", file)?;
-        }
-
-        if let Some(position) = self.position() {
-            write!(f, " position {}", position)?;
-        }
-
-        if let Some(snippet) = self.snippet() {
-            write!(f, " near '{}'", snippet)?;
-        }
-
-        if let Some(id) = self.id() {
-            write!(f, " ID {}", id)?;
-        }
+        write!(f, "parse error: {}{}", self.kind, self.context)?;
 
         Ok(())
     }
@@ -288,13 +272,35 @@ struct ParseContext {
     id: Option<String>,
 }
 
+impl Display for ParseContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(file) = &self.file {
+            write!(f, " file '{:?}'", file)?;
+        }
+
+        if let Some(position) = self.position {
+            write!(f, " position {}", position)?;
+        }
+
+        if let Some(snippet) = &self.snippet {
+            write!(f, " near '{}'", snippet)?;
+        }
+
+        if let Some(id) = &self.id {
+            write!(f, " ID {}", id)?;
+        }
+
+        Ok(())
+    }
+}
+
 /// Error for protocols.
 #[derive(Debug, thiserror::Error)]
-#[error("protocol error: {kind}")]
 pub struct ProtocolError {
     kind: ProtocolErrorKind,
     backtrace: Option<Box<Backtrace>>,
     source: Option<Box<dyn std::error::Error + Send + Sync>>,
+    context: Box<ParseContext>,
 }
 
 impl ProtocolError {
@@ -303,11 +309,17 @@ impl ProtocolError {
             kind,
             backtrace: Some(Box::new(std::backtrace::Backtrace::capture())),
             source: None,
+            context: Box::new(ParseContext::default()),
         }
     }
 
     pub fn other(error: Box<dyn std::error::Error + Send + Sync>) -> Self {
         Self::new(ProtocolErrorKind::Other).with_source(error)
+    }
+
+    pub fn with_backtrace(mut self, backtrace: Backtrace) -> Self {
+        self.backtrace = Some(Box::new(backtrace));
+        self
     }
 
     pub fn with_source<T: Into<Box<dyn std::error::Error + Send + Sync>>>(
@@ -318,8 +330,41 @@ impl ProtocolError {
         self
     }
 
+    pub fn with_file<P: Into<PathBuf>>(mut self, path: P) -> Self {
+        self.context.file = Some(path.into());
+        self
+    }
+
+    pub fn with_position(mut self, value: u64) -> Self {
+        self.context.position = Some(value);
+        self
+    }
+
+    pub fn with_snippet<S: Into<String>>(mut self, value: S) -> Self {
+        self.context.snippet = Some(value.into());
+        self
+    }
+
     pub fn kind(&self) -> ProtocolErrorKind {
         self.kind
+    }
+
+    pub fn file(&self) -> Option<&Path> {
+        self.context.file.as_deref()
+    }
+
+    pub fn position(&self) -> Option<u64> {
+        self.context.position
+    }
+
+    pub fn snippet(&self) -> Option<&String> {
+        self.context.snippet.as_ref()
+    }
+}
+
+impl Display for ProtocolError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "protocol error: {}{}", self.kind, self.context)
     }
 }
 
