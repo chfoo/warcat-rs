@@ -1,6 +1,4 @@
 //! Example on how to encode a WARC file by records
-//! use std::io::Write;
-
 use std::io::Write;
 
 use warcat::{
