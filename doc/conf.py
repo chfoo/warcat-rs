@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Warcat'
-copyright = '2024, Warcat contributors'
+copyright = '2024-2025 Warcat contributors'
 author = 'Warcat contributors'
 
 # -- General configuration ---------------------------------------------------

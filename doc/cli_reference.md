@@ -206,7 +206,7 @@ Returns a single WARC record
 
 Output export messages
 
-**Usage:** `warcat get export [OPTIONS] --position <POSITION> --id <ID>`
+**Usage:** `warcat get export [OPTIONS] --position <POSITION>`
 
 ###### **Options:**
 
@@ -253,7 +253,7 @@ Output export messages
 
 Extract a resource
 
-**Usage:** `warcat get extract [OPTIONS] --position <POSITION> --id <ID>`
+**Usage:** `warcat get extract [OPTIONS] --position <POSITION>`
 
 ###### **Options:**
 
