@@ -2,9 +2,9 @@ name: Cargo test
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "gh" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "gh" ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -18,3 +18,13 @@ jobs:
     - uses: Swatinem/rust-cache@v2
     - name: Run tests
       run: cargo test --verbose --features=bin
+  lint:
+    name: Lint check on latest Ubuntu
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: Swatinem/rust-cache@v2
+    - name: Run clippy
+      run: cargo clippy --verbose --features=bin
+    - name: Make annotation
+      run: if ! cargo clippy --quiet --features=bin -- -D warnings; then echo "::warning::Lint check failed"; fi
