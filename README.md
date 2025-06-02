@@ -18,7 +18,7 @@ This project is a rewrite of the [warcat](https://github.com/chfoo/warcat/) proj
 
 If you want to compile the program yourself, set up a [Rust environment](https://www.rust-lang.org/tools/install).
 
-* Project requires Rust 1.80 or higher.
+* Project requires Rust 1.85 or higher.
 
 Once you have Rust installed, use the cargo build tool:
 
@@ -37,4 +37,4 @@ The program will be placed in the `target` directory.
 
 ## License
 
-Copyright 2024-2025 Christopher Foo. Licensed under Mozilla Public License 2.0
+Copyright 2024-2025 Christopher Foo and Warcat-rs contributors. Licensed under Mozilla Public License 2.0
