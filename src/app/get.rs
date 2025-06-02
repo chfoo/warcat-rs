@@ -55,7 +55,7 @@ fn export(args: &GetExportSubcommand) -> anyhow::Result<()> {
 
     let record_id = header.fields.get_or_default("WARC-Record-ID");
 
-    if !args.id.as_ref().is_none_or(|id| id == record_id) {
+    if args.id.as_ref().is_some_and(|id| id != record_id) {
         return Err(ProtocolError::new(ProtocolErrorKind::NotFound).into());
     }
 
@@ -123,7 +123,7 @@ fn extract(args: &GetExtractSubcommand) -> anyhow::Result<()> {
 
     let record_id = header.fields.get_or_default("WARC-Record-ID");
 
-    if !args.id.as_ref().is_none_or(|id| id == record_id) {
+    if args.id.as_ref().is_some_and(|id| id != record_id) {
         return Err(ProtocolError::new(ProtocolErrorKind::NotFound).into());
     }
 
