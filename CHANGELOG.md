@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.4 (2025-06-02)
+
+* Fixed: WARC header incorrectly rejected as invalid (#8).
+* Fixed: Unexpected end of file error during decompression of the last record.
+* Changed: `--id` is now optional for `get export` and `get extract` (#7).
+
+### Library
+
+* Added: PushDecompressor::write_eof()
+* Changed: PushDecoderEvent and PushDecoder::write_eof()
+
 ## 0.3.3 (2025-05-26)
 
 * Fixed: parse error for HTTP responses without a space after the status code (#3).
